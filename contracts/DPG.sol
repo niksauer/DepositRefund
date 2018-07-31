@@ -1,4 +1,4 @@
-pragma solidity ^0.4.23;
+pragma solidity ^0.4.24;
 
 contract DPG {
 
@@ -7,11 +7,12 @@ contract DPG {
 
     // TODO: how to calculate deposit value? how to account for fluctuation in ether's value?
     uint depositValue = 1 ether;
+    // TODO: rationales are not supported 
     uint environmentalShare = 0.5;
 
     mapping (address => uint) currentReusableBottlePurchasesForAddress;
     mapping (address => uint) previousReusableBottlePurchasesForAddress;
-    mapping (address => uint) didClaimReward;
+    mapping (address => bool) didClaimReward;
 
     uint approvedEnvironmentalAgencies;
     mapping (address => bool) didClaimDonation;
@@ -38,7 +39,7 @@ contract DPG {
 
     // INITIALIZATION
     // TODO: check proper constructor syntax
-    function DPG() {
+    constructor() {
         owner = msg.sender;
         // TODO: check initialization of properties
     }
@@ -74,14 +75,14 @@ contract DPG {
 
     // REWARDS/DONATIONS
     function unlockReward() public {
-        // TODO
         previousThrownAwayOneWayBottleCount = currentThrownAwayOneWayBottleCount;
         previousReusableBottlePurchasesTotal = currentReusableBottlePurchasesTotal;
+        // TODO: can't assign mappings
         previousReusableBottlePurchasesForAddress = currentReusableBottlePurchasesForAddress;
 
         currentThrownAwayOneWayBottleCount = 0;
         currentReusableBottlePurchasesTotal = 0;
-        // TODO: reset purchases for address mapping
+        // TODO: reset mapping purchases count to addresses
     }
 
     // TODO: how to handle remaining non-claimed rewards/donations?
@@ -120,26 +121,26 @@ contract DPG {
         isAgencyApprovalPending[msg.sender] = false;
     }
 
-    function approve(address environmentalAgency) public restricted {
-        require(isAgencyApprovalPending[environmentalAgency] == true);
+    function approveEnvironmentalAgency(address _address) public restricted {
+        require(isAgencyApprovalPending[_address] == true);
 
-        isApprovedEnvironmentalAgency[environmentalAgency] = true;
-        isAgencyApprovalPending[environmentalAgency] = false;
+        isApprovedEnvironmentalAgency[_address] = true;
+        isAgencyApprovalPending[_address] = false;
         // TODO: delete isApprovalPending[environmentalAgency]
     }
 
-    function add(address environmentalAgency) public restricted {
-        require(isApprovedEnvironmentalAgency[environmentalAgency] == false);
+    function addEnvironmentalAgency(address _address) public restricted {
+        require(isApprovedEnvironmentalAgency[_address] == false);
 
-        isApprovedEnvironmentalAgency[environmentalAgency] = true;
+        isApprovedEnvironmentalAgency[_address] = true;
         // TODO: check how mapping is initialized
     }
 
-    function remove(address environmentalAgency) public restricted {
-        require(isApprovedEnvironmentalAgency[environmentalAgency] == true);
+    function removeEnvironmentalAgency(address _address) public restricted {
+        require(isApprovedEnvironmentalAgency[_address] == true);
 
-        isApprovedEnvironmentalAgency[environmentalAgency] = false;
-        isAgencyApprovalPending[environmentalAgency] = false;
+        isApprovedEnvironmentalAgency[_address] = false;
+        isAgencyApprovalPending[_address] = false;
     }
 
     // GARBAGE COLLECTION
@@ -157,26 +158,26 @@ contract DPG {
         isGarbageApprovalPending[msg.sender] = false;
     }
 
-    function approve(address garbageCollection) public restricted {
-        require(isGarbageApprovalPending[garbageCollection] == true);
+    function approveGarbageCollection(address _address) public restricted {
+        require(isGarbageApprovalPending[_address] == true);
 
-        isApprovedGarbageCollection[garbageCollection] = true;
-        isGarbageApprovalPending[garbageCollection] = false;
+        isApprovedGarbageCollection[_address] = true;
+        isGarbageApprovalPending[_address] = false;
         // TODO: delete isApprovalPending[environmentalAgency]
     }
 
-    function add(address garbageCollection) public restricted {
-        require(isApprovedGarbageCollection[garbageCollection] == false);
+    function addGarbageCollection(address _address) public restricted {
+        require(isApprovedGarbageCollection[_address] == false);
 
-        isApprovedGarbageCollection[environmentalAgency] = true;
+        isApprovedGarbageCollection[_address] = true;
         // TODO: check how mapping is initialized
     }
 
-    function remove(address garbageCollection) public restricted {
-        require(isApprovedGarbageCollection[garbageCollection] == true);
+    function removeGarbageCollection(address _address) public restricted {
+        require(isApprovedGarbageCollection[_address] == true);
 
-        isApprovedGarbageCollection[garbageCollection] = false;
-        isGarbageApprovalPending[garbageCollection] = false;
+        isApprovedGarbageCollection[_address] = false;
+        isGarbageApprovalPending[_address] = false;
     }
 
 }

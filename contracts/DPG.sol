@@ -1,30 +1,35 @@
 pragma solidity ^0.4.23;
 
-contract Escrow {
+contract DPG {
 
-    // PRIVATE PROPERTIES
+    // MARK: - Private Properties
     address owner;
 
-    mapping (address => uint) reusableBottlePurchases;
-    // mapping (address => uint) claimedRewards;
+    // TODO: how to calculate deposit value? how to account for fluctuation in ether's value?
+    uint depositValue = 1 ether;
+    uint environmentalShare = 0.5;
 
+    mapping (address => uint) currentReusableBottlePurchasesForAddress;
+    mapping (address => uint) previousReusableBottlePurchasesForAddress;
+    mapping (address => uint) didClaimReward;
+
+    uint approvedEnvironmentalAgencies;
+    mapping (address => bool) didClaimDonation;
     mapping (address => bool) isApprovedEnvironmentalAgency;
     mapping (address => bool) isAgencyApprovalPending;
 
     mapping (address => bool) isApprovedGarbageCollection;
     mapping (address => bool) isGarbageApprovalPending;
 
-    // PUBLIC PROPERTIES
-    uint public thrownAwayBottles;
+    // MARK: - Public Properties
+    uint public currentReusableBottlePurchasesTotal;
+    uint public previousReusableBottlePurchasesTotal;
 
-    // uint public previouslyThrownAwayBottles;
-
-    // uint public totalReusableBottleSales;
-    // uint public rewards;
-    // uint public unclaimedRewards;
+    uint public currentThrownAwayOneWayBottleCount;
+    uint public previousThrownAwayOneWayBottleCount;
 
     // EVENTS
-    // TODO: define events
+    // TODO: define events (may be used as UI update notifications)
 
     // MODIFIER
     modifier restricted() {
@@ -33,22 +38,24 @@ contract Escrow {
 
     // INITIALIZATION
     // TODO: check proper constructor syntax
-    function Escrow() {
+    function DPG() {
         owner = msg.sender;
         // TODO: check initialization of properties
     }
 
     // DEPOSIT/REFUND
     // leave deposit upon buying newly introduced bottle (i.e. bottle put into circulation through purchase)
-    function deposit() public payable {
-        // TODO: use fallback function instead?
+    // TODO: use fallback function instead?
+    function deposit(uint bottleCount) public payable {
+        require(msg.value == bottleCount * depositValue);
     }
 
     // refund take-back point up to the amount of bottles it accepted
     // refund = amount * 0.25€ (for one-way bottles)
     // TODO: how to limit refunds to take-back points (use signed receipts)? how to guarantee single refund (track used receipts)?
-    function refund(string bottleCount) public {
-        // TODO: how to calculate amount? how to account for fluctuation in ether's value?
+    function refund(uint bottleCount) public {
+        uint amount = bottleCount * depositValue;
+        msg.sender.transfer(amount);
     }
 
     // DATA REPORTING
@@ -56,32 +63,46 @@ contract Escrow {
     function reportThrownAwayBottles(uint count) public {
         require(isApprovedGarbageCollection[msg.sender] == true);
 
-        thrownAwayBottles = thrownAwayBottles + count;
+        currentThrownAwayOneWayBottleCount = currentThrownAwayOneWayBottleCount + count;
     }
 
     // TODO: how to prove count and purchaser? how to limit reporting to retailers? how to guarantee single report?
     function reportReusableBottlePurchase(address purchaser, uint count) public {
-        reusableBottlePurchases[purchaser] = reusableBottlePurchases[purchaser] + count;
+        currentReusableBottlePurchasesForAddress[purchaser] = currentReusableBottlePurchasesForAddress[purchaser] + count;
+        currentReusableBottlePurchasesTotal = currentReusableBottlePurchasesTotal + count;
     }
 
     // REWARDS/DONATIONS
-    function setReward() public {
+    function unlockReward() public {
         // TODO
+        previousThrownAwayOneWayBottleCount = currentThrownAwayOneWayBottleCount;
+        previousReusableBottlePurchasesTotal = currentReusableBottlePurchasesTotal;
+        previousReusableBottlePurchasesForAddress = currentReusableBottlePurchasesForAddress;
+
+        currentThrownAwayOneWayBottleCount = 0;
+        currentReusableBottlePurchasesTotal = 0;
+        // TODO: reset purchases for address mapping
     }
 
+    // TODO: how to handle remaining non-claimed rewards/donations?
     function claimDonation() public {
         require(isApprovedEnvironmentalAgency[msg.sender] == true);
+        require(didClaimDonation[msg.sender] == false);
 
-        // TODO
+        uint share = 1 / approvedEnvironmentalAgencies;
+        uint amount = share * (previousThrownAwayOneWayBottleCount * depositValue) * environmentalShare;
+        msg.sender.transfer(amount);
+        didClaimDonation[msg.sender] = true;
     }
 
     function claimReward() public {
-        //uint unclaimedRewards = reusableBottlePurchases[msg.sender] - claimedRewards[msg.sender];
-        //require(unclaimedRewards > 0);
+        require(didClaimReward[msg.sender] == false);
+        uint share = previousReusableBottlePurchasesForAddress[msg.sender] / previousReusableBottlePurchasesTotal;
+        require(share > 0);
 
-        // TODO
-
-        //claimedRewards[msg.sender] = claimedRewards[msg.sender] + unclaimedRewards;
+        uint amount = share * (previousThrownAwayOneWayBottleCount * depositValue) * (1 - environmentalShare);
+        msg.sender.transfer(amount);
+        didClaimReward[msg.sender] = true;
     }
 
     // ENVIRONMENTAL AGENCIES
@@ -159,4 +180,3 @@ contract Escrow {
     }
 
 }
-

@@ -34,13 +34,13 @@ contract DPG {
     // MARK: - Private Properties
     address owner;
 
-    uint periodLength = 4 weeks;
+    uint constant periodLength = 4 weeks;
 
     // TODO: how to calculate deposit value? how to account for fluctuation in ether's value?
-    uint depositValue = 1 ether;
+    uint constant depositValue = 1 ether;
 
     // TODO: rationales are not supported
-    uint shareOfAgencies = 0.5;
+    uint constant shareOfAgencies = 0.5;
     uint approvedAgencies;
     mapping(address => EnvironmentalAgency) agencies;
 
@@ -109,11 +109,11 @@ contract DPG {
         }
     }
 
-    function getAccountingPeriod() internal returns (Period storage) {
+    function getAccountingPeriod() internal view returns (Period storage) {
         return currentPeriodName == PeriodName.A ? periodA : periodB;
     }
 
-    function getRewardPeriod() internal returns (Period storage) {
+    function getRewardPeriod() internal view returns (Period storage) {
         return currentPeriodName == PeriodName.A ? periodB : periodA;
     }
 
@@ -134,12 +134,12 @@ contract DPG {
         consumer.lastResetPeriodIndex = currentPeriodIndex;
     }
 
-    function getRewardAmount(uint reusableBottlePurchases, uint periodIndex) internal returns (uint amount) {
+    function getRewardAmount(uint reusableBottlePurchases, uint periodIndex) internal view returns (uint amount) {
         uint consumerShare = reusableBottlePurchases / reusableBottlePurchasesInPeriod[periodIndex];
         amount = consumerShare * (thrownAwayOneWayBottlesInPeriod[periodIndex] * depositValue) * (1 - shareOfAgencies);
     }
 
-    function getDonationAmount() internal returns (uint amount) {
+    function getDonationAmount() internal view returns (uint amount) {
         uint singleAgencyShare = (1 / approvedAgencies);
         amount = singleAgencyShare * agencyFund;
     }

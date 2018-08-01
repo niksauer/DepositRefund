@@ -204,7 +204,6 @@ contract DPG {
         }
     }
 
-    // TODO: how to handle remaining non-claimed rewards/donations?
     function claimDonation() public timeDependent {
         require(currentPeriodIndex > 1);
 
@@ -230,6 +229,7 @@ contract DPG {
         requester.isApprovalPending = true;
     }
 
+    // TODO: check if deletion from mapping makes sense here (delete agencies[msg.sender])
     function unregisterAsEnvironmentalAgency() public {
         EnvironmentalAgency storage agency = agencies[msg.sender];
         require(agency.isApproved || agency.isApprovalPending);
@@ -240,7 +240,6 @@ contract DPG {
 
         agency.isApproved = false;
         agency.isApprovalPending = false;
-        // TODO: check if deletion makes sense here (delete collectors[_address])
     }
 
     function addEnvironmentalAgency(address _address) public onlyOwner {
@@ -254,6 +253,7 @@ contract DPG {
         agency.joined = now;
     }
 
+    // TODO: check if deletion makes sense here (delete agencies[_address])
     function removeEnvironmentalAgency(address _address) public onlyOwner {
         EnvironmentalAgency storage agency = agencies[_address];
         require(agency.isApproved);
@@ -262,7 +262,6 @@ contract DPG {
 
         agency.isApproved = false;
         agency.isApprovalPending = false;
-        // TODO: check if deletion makes sense here (delete collectors[_address])
     }
 
     // MARK: Garbage Collectors
@@ -273,13 +272,13 @@ contract DPG {
         requester.isApprovalPending = true;
     }
 
+    // TODO: check if deletion makes sense here (delete collectors[msg.sender])
     function unregisterAsGarbageCollector() public {
         GarbageCollector storage collector = collectors[msg.sender];
         require(collector.isApproved || collector.isApprovalPending);
 
         collector.isApproved = false;
         collector.isApprovalPending = false;
-        // TODO: check if deletion makes sense here (delete collectors[_address])
     }
 
     function addGarbageCollector(address _address) public onlyOwner {
@@ -290,13 +289,13 @@ contract DPG {
         collector.isApprovalPending = false;
     }
 
+    // TODO: check if deletion makes sense here (delete collectors[_address])
     function removeGarbageCollector(address _address) public onlyOwner {
         GarbageCollector storage collector = collectors[_address];
         require(collector.isApproved);
 
         collector.isApproved = false;
         collector.isApprovalPending = false;
-        // TODO: check if deletion makes sense here (delete collectors[_address])
     }
 
 }

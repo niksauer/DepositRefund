@@ -2,49 +2,78 @@ pragma solidity ^0.4.24;
 
 contract DPG {
 
+    // MARK: - Types
+    enum Period { A, B }
+
+    struct Consumer {
+        uint reusableBottlePurchases;
+        bool hasClaimedReward;
+    }
+
+    struct AccountingPeriod {
+        uint startTime;
+        uint reusableBottlePurchases;
+        uint thrownAwayOneWayBottles;
+        mapping(address => Consumer) consumers;
+    }
+
+    struct EnvironmentalAgency {
+        bool isApproved;
+        bool isApprovalPending;
+        bool hasClaimedDonation;
+    }
+
+    struct GarbageCollector {
+        bool isApproved;
+        bool isApprovalPending;
+    }
+
     // MARK: - Private Properties
     address owner;
 
     // TODO: how to calculate deposit value? how to account for fluctuation in ether's value?
     uint depositValue = 1 ether;
-    // TODO: rationales are not supported 
-    uint environmentalShare = 0.5;
 
-    mapping (address => uint) currentReusableBottlePurchasesForAddress;
-    mapping (address => uint) previousReusableBottlePurchasesForAddress;
-    mapping (address => bool) didClaimReward;
+    // TODO: rationales are not supported
+    uint shareOfAgencies = 0.5;
+    uint approvedAgencies;
+    mapping(address => EnvironmentalAgency) agencies;
 
-    uint approvedEnvironmentalAgencies;
-    mapping (address => bool) didClaimDonation;
-    mapping (address => bool) isApprovedEnvironmentalAgency;
-    mapping (address => bool) isAgencyApprovalPending;
-
-    mapping (address => bool) isApprovedGarbageCollection;
-    mapping (address => bool) isGarbageApprovalPending;
+    mapping(address => GarbageCollector) collectors;
 
     // MARK: - Public Properties
-    uint public currentReusableBottlePurchasesTotal;
-    uint public previousReusableBottlePurchasesTotal;
+    uint periodLength = 4 weeks;
+    Period public currentPeriod;
+    AccountingPeriod public periodA;
+    AccountingPeriod public periodB;
 
-    uint public currentThrownAwayOneWayBottleCount;
-    uint public previousThrownAwayOneWayBottleCount;
-
-    // EVENTS
+    // MARK: - Events
     // TODO: define events (may be used as UI update notifications)
 
-    // MODIFIER
-    modifier restricted() {
+    // MARK: - Modifier
+    modifier onlyOwner() {
         if (msg.sender == owner) _;
     }
 
-    // INITIALIZATION
-    // TODO: check proper constructor syntax
+    // MARK: - Initialization
     constructor() {
         owner = msg.sender;
+        currentPeriod = Period.A;
+        periodA.starTime = now;
         // TODO: check initialization of properties
     }
 
-    // DEPOSIT/REFUND
+    // MARK: - Private Methods
+    function getCurrentPeriod() internal returns (AccountingPeriod storage) {
+        return currentPeriod == Period.A ? periodA : periodB;
+    }
+
+    function getRewardPeriod() internal returns (AccountingPeriod storage) {
+        return currentPeriod == Period.A ? periodB : periodA;
+    }
+
+    // MARK: - Public Methods
+    // MARK: Deposit/Refund
     // leave deposit upon buying newly introduced bottle (i.e. bottle put into circulation through purchase)
     // TODO: use fallback function instead?
     function deposit(uint bottleCount) public payable {
@@ -62,122 +91,134 @@ contract DPG {
     // DATA REPORTING
     // TODO: how to prove count? how to guarantee single report?
     function reportThrownAwayBottles(uint count) public {
-        require(isApprovedGarbageCollection[msg.sender] == true);
+        require(collectors[msg.sender].isApproved);
 
-        currentThrownAwayOneWayBottleCount = currentThrownAwayOneWayBottleCount + count;
+        AccountingPeriod storage period = getCurrentPeriod();
+        period.thrownAwayOneWayBottles = period.thrownAwayOneWayBottles + count;
     }
 
     // TODO: how to prove count and purchaser? how to limit reporting to retailers? how to guarantee single report?
     function reportReusableBottlePurchase(address purchaser, uint count) public {
-        currentReusableBottlePurchasesForAddress[purchaser] = currentReusableBottlePurchasesForAddress[purchaser] + count;
-        currentReusableBottlePurchasesTotal = currentReusableBottlePurchasesTotal + count;
+        AccountingPeriod storage period = getCurrentPeriod();
+        period.consumers[msg.sender].reusableBottlePurchases = period.consumers[msg.sender].reusableBottlePurchases + count;
+        period.reusableBottlePurchases = period.reusableBottlePurchases + count;
     }
 
     // REWARDS/DONATIONS
     function unlockReward() public {
-        previousThrownAwayOneWayBottleCount = currentThrownAwayOneWayBottleCount;
-        previousReusableBottlePurchasesTotal = currentReusableBottlePurchasesTotal;
-        // TODO: can't assign mappings
-        previousReusableBottlePurchasesForAddress = currentReusableBottlePurchasesForAddress;
+        
+        /*if (currentPeriod == Period.A) {
+            currentPeriod = Period.B;
+        } else {
+            currentPeriod = Period.A;
+        }*/
 
-        currentThrownAwayOneWayBottleCount = 0;
-        currentReusableBottlePurchasesTotal = 0;
+        // previousThrownAwayOneWayBottleCount = currentThrownAwayOneWayBottleCount;
+        //previousReusableBottlePurchasesTotal = currentReusableBottlePurchasesTotal;
+        // TODO: can't assign mappings
+        //previousReusableBottlePurchasesForAddress = currentReusableBottlePurchasesForAddress;
+
+        //currentThrownAwayOneWayBottleCount = 0;
+        //currentReusableBottlePurchasesTotal = 0;
         // TODO: reset mapping purchases count to addresses
     }
 
     // TODO: how to handle remaining non-claimed rewards/donations?
     function claimDonation() public {
-        require(isApprovedEnvironmentalAgency[msg.sender] == true);
-        require(didClaimDonation[msg.sender] == false);
+        EnvironmentalAgency storage agency = agencies[msg.sender];
+        require(agency.isApproved && !agency.hasClaimedDonation);
 
-        uint share = 1 / approvedEnvironmentalAgencies;
-        uint amount = share * (previousThrownAwayOneWayBottleCount * depositValue) * environmentalShare;
+        AccountingPeriod storage period = getRewardPeriod();
+        uint share = 1 / approvedAgencies;
+        uint amount = share * (period.thrownAwayOneWayBottles * depositValue) * shareOfAgencies;
         msg.sender.transfer(amount);
-        didClaimDonation[msg.sender] = true;
+        agency.hasClaimedDonation = true;
     }
 
     function claimReward() public {
-        require(didClaimReward[msg.sender] == false);
-        uint share = previousReusableBottlePurchasesForAddress[msg.sender] / previousReusableBottlePurchasesTotal;
+        AccountingPeriod storage period = getRewardPeriod();
+        Consumer storage sender = period.consumers[msg.sender];
+        require(!sender.hasClaimedReward);
+        uint share = sender.reusableBottlePurchases / period.reusableBottlePurchases;
         require(share > 0);
 
-        uint amount = share * (previousThrownAwayOneWayBottleCount * depositValue) * (1 - environmentalShare);
+        uint amount = share * (period.thrownAwayOneWayBottles * depositValue) * (1 - shareOfAgencies);
         msg.sender.transfer(amount);
-        didClaimReward[msg.sender] = true;
+        sender.hasClaimedReward = true;
     }
 
     // ENVIRONMENTAL AGENCIES
     function registerAsEnvironmentalAgency() public {
-        require(isApprovedEnvironmentalAgency[msg.sender] == false);
-        require(isAgencyApprovalPending[msg.sender] == false);
+        EnvironmentalAgency storage sender = agencies[msg.sender];
+        require(!sender.isApproved && !sender.isApprovalPending);
 
-        isAgencyApprovalPending[msg.sender] = true;
+        sender.isApprovalPending = true;
     }
 
     function unregisterAsEnvironmentalAgency() public {
-        require(isApprovedEnvironmentalAgency[msg.sender] == true || isAgencyApprovalPending[msg.sender] == true);
+        EnvironmentalAgency storage sender = agencies[msg.sender];
+        require(sender.isApproved || sender.isApprovalPending);
 
-        isApprovedEnvironmentalAgency[msg.sender] = false;
-        isAgencyApprovalPending[msg.sender] = false;
+        if (sender.isApproved) {
+            approvedAgencies = approvedAgencies - 1;
+        }
+
+        sender.isApproved = false;
+        sender.isApprovalPending = false;
+        // TODO: check if deletion makes sense here (delete collectors[_address])
     }
 
-    function approveEnvironmentalAgency(address _address) public restricted {
-        require(isAgencyApprovalPending[_address] == true);
+    function addEnvironmentalAgency(address _address) public onlyOwner {
+        EnvironmentalAgency storage sender = agencies[msg.sender];
+        require(!sender.isApproved);
 
-        isApprovedEnvironmentalAgency[_address] = true;
-        isAgencyApprovalPending[_address] = false;
-        // TODO: delete isApprovalPending[environmentalAgency]
+        sender.isApproved = true;
+        sender.isApprovalPending = false;
+        approvedAgencies = approvedAgencies + 1;
     }
 
-    function addEnvironmentalAgency(address _address) public restricted {
-        require(isApprovedEnvironmentalAgency[_address] == false);
+    function removeEnvironmentalAgency(address _address) public onlyOwner {
+        EnvironmentalAgency storage sender = agencies[msg.sender];
+        require(sender.isApproved);
 
-        isApprovedEnvironmentalAgency[_address] = true;
-        // TODO: check how mapping is initialized
-    }
-
-    function removeEnvironmentalAgency(address _address) public restricted {
-        require(isApprovedEnvironmentalAgency[_address] == true);
-
-        isApprovedEnvironmentalAgency[_address] = false;
-        isAgencyApprovalPending[_address] = false;
+        sender.isApproved = false;
+        sender.isApprovalPending = false;
+        // TODO: check if deletion makes sense here (delete collectors[_address])
+        approvedAgencies = approvedAgencies - 1;
     }
 
     // GARBAGE COLLECTION
-    function registerAsGarbageCollection() public {
-        require(isApprovedGarbageCollection[msg.sender] == false);
-        require(isGarbageApprovalPending[msg.sender] == false);
+    function registerAsGarbageCollector() public {
+        GarbageCollector storage sender = collectors[msg.sender];
+        require(!sender.isApproved && !sender.isApprovalPending);
 
-        isGarbageApprovalPending[msg.sender] = true;
+        sender.isApprovalPending = true;
     }
 
-    function unregisterAsGarbageCollection() public {
-        require(isApprovedGarbageCollection[msg.sender] == true || isGarbageApprovalPending[msg.sender] == true);
+    function unregisterAsGarbageCollector() public {
+        GarbageCollector storage sender = collectors[msg.sender];
+        require(sender.isApproved || sender.isApprovalPending);
 
-        isApprovedGarbageCollection[msg.sender] = false;
-        isGarbageApprovalPending[msg.sender] = false;
+        sender.isApproved = false;
+        sender.isApprovalPending = false;
+        // TODO: check if deletion makes sense here (delete collectors[_address])
     }
 
-    function approveGarbageCollection(address _address) public restricted {
-        require(isGarbageApprovalPending[_address] == true);
+    function addGarbageCollector(address _address) public onlyOwner {
+        GarbageCollector storage sender = collectors[msg.sender];
+        require(!sender.isApproved);
 
-        isApprovedGarbageCollection[_address] = true;
-        isGarbageApprovalPending[_address] = false;
-        // TODO: delete isApprovalPending[environmentalAgency]
+        sender.isApproved = true;
+        sender.isApprovalPending = false;
     }
 
-    function addGarbageCollection(address _address) public restricted {
-        require(isApprovedGarbageCollection[_address] == false);
+    function removeGarbageCollector(address _address) public onlyOwner {
+        GarbageCollector storage sender = collectors[msg.sender];
+        require(sender.isApproved);
 
-        isApprovedGarbageCollection[_address] = true;
-        // TODO: check how mapping is initialized
-    }
-
-    function removeGarbageCollection(address _address) public restricted {
-        require(isApprovedGarbageCollection[_address] == true);
-
-        isApprovedGarbageCollection[_address] = false;
-        isGarbageApprovalPending[_address] = false;
+        sender.isApproved = false;
+        sender.isApprovalPending = false;
+        // TODO: check if deletion makes sense here (delete collectors[_address])
     }
 
 }

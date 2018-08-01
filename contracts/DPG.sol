@@ -3,15 +3,17 @@ pragma solidity ^0.4.24;
 contract DPG {
 
     // MARK: - Types
-    enum Period { A, B }
+    enum PeriodName { A, B }
 
     struct Consumer {
         uint reusableBottlePurchases;
         bool hasClaimedReward;
+        uint lastResetPeriodIndex;
     }
 
-    struct AccountingPeriod {
-        uint startTime;
+    struct Period {
+        uint index;
+        uint start;
         uint reusableBottlePurchases;
         uint thrownAwayOneWayBottles;
         mapping(address => Consumer) consumers;
@@ -20,7 +22,8 @@ contract DPG {
     struct EnvironmentalAgency {
         bool isApproved;
         bool isApprovalPending;
-        bool hasClaimedDonation;
+        uint lastClaimPeriodIndex;
+        uint joined;
     }
 
     struct GarbageCollector {
@@ -30,6 +33,8 @@ contract DPG {
 
     // MARK: - Private Properties
     address owner;
+
+    uint periodLength = 4 weeks;
 
     // TODO: how to calculate deposit value? how to account for fluctuation in ether's value?
     uint depositValue = 1 ether;
@@ -41,11 +46,17 @@ contract DPG {
 
     mapping(address => GarbageCollector) collectors;
 
+    uint[] reusableBottlePurchasesInPeriod;
+    uint[] thrownAwayOneWayBottlesInPeriod;
+
     // MARK: - Public Properties
-    uint periodLength = 4 weeks;
-    Period public currentPeriod;
-    AccountingPeriod public periodA;
-    AccountingPeriod public periodB;
+    uint currentPeriodIndex;
+    PeriodName public currentPeriodName;
+    Period public periodA;
+    Period public periodB;
+
+    uint public unclaimedRewards;
+    uint public agencyFund;
 
     // MARK: - Events
     // TODO: define events (may be used as UI update notifications)
@@ -55,21 +66,82 @@ contract DPG {
         if (msg.sender == owner) _;
     }
 
+    modifier timeDependent() {
+        Period memory period = getAccountingPeriod();
+
+        if (now < period.start + periodLength) {
+            _;
+        } else {
+            setNextPeriod();
+            _;
+        }
+    }
+
     // MARK: - Initialization
     constructor() {
         owner = msg.sender;
-        currentPeriod = Period.A;
-        periodA.starTime = now;
-        // TODO: check initialization of properties
+        currentPeriodIndex = 1;
+        currentPeriodName = PeriodName.A;
+        periodA.index = currentPeriodIndex;
+        periodA.start = now;
+        unclaimedRewards = 0;
     }
 
     // MARK: - Private Methods
-    function getCurrentPeriod() internal returns (AccountingPeriod storage) {
-        return currentPeriod == Period.A ? periodA : periodB;
+    function setNextPeriod() internal {
+        Period storage period = getAccountingPeriod();
+        require(now >= period.start + periodLength);
+
+        reusableBottlePurchasesInPeriod.push(period.reusableBottlePurchases);
+        thrownAwayOneWayBottlesInPeriod.push(period.thrownAwayOneWayBottles);
+
+        if (currentPeriodName == PeriodName.A) {
+            currentPeriodName = PeriodName.B;
+        } else {
+            currentPeriodName = PeriodName.A;
+        }
+
+        currentPeriodIndex = currentPeriodIndex + 1;
+
+        if (currentPeriodIndex > 2) {
+            period = getAccountingPeriod();
+            resetPeriod(period);
+        }
     }
 
-    function getRewardPeriod() internal returns (AccountingPeriod storage) {
-        return currentPeriod == Period.A ? periodB : periodA;
+    function getAccountingPeriod() internal returns (Period storage) {
+        return currentPeriodName == PeriodName.A ? periodA : periodB;
+    }
+
+    function getRewardPeriod() internal returns (Period storage) {
+        return currentPeriodName == PeriodName.A ? periodB : periodA;
+    }
+
+    function resetPeriod(Period period) internal {
+        period.index = currentPeriodIndex;
+        period.start = now;
+        period.reusableBottlePurchases = 0;
+        period.thrownAwayOneWayBottles = 0;
+    }
+
+    function resetConsumer(Consumer consumer) internal {
+        if (consumer.lastResetPeriodIndex > 0 && !consumer.hasClaimedReward && consumer.reusableBottlePurchases > 0) {
+            unclaimedRewards = unclaimedRewards + getRewardAmount(consumer.reusableBottlePurchases, consumer.lastResetPeriodIndex);
+        }
+
+        consumer.reusableBottlePurchases = 0;
+        consumer.hasClaimedReward = false;
+        consumer.lastResetPeriodIndex = currentPeriodIndex;
+    }
+
+    function getRewardAmount(uint reusableBottlePurchases, uint periodIndex) internal returns (uint amount) {
+        uint consumerShare = reusableBottlePurchases / reusableBottlePurchasesInPeriod[periodIndex];
+        amount = consumerShare * (thrownAwayOneWayBottlesInPeriod[periodIndex] * depositValue) * (1 - shareOfAgencies);
+    }
+
+    function getDonationAmount() internal returns (uint amount) {
+        uint singleAgencyShare = (1 / approvedAgencies);
+        amount = singleAgencyShare * agencyFund;
     }
 
     // MARK: - Public Methods
@@ -88,136 +160,142 @@ contract DPG {
         msg.sender.transfer(amount);
     }
 
-    // DATA REPORTING
-    // TODO: how to prove count? how to guarantee single report?
-    function reportThrownAwayBottles(uint count) public {
-        require(collectors[msg.sender].isApproved);
-
-        AccountingPeriod storage period = getCurrentPeriod();
-        period.thrownAwayOneWayBottles = period.thrownAwayOneWayBottles + count;
-    }
-
+    // MARK: Data Reporting
     // TODO: how to prove count and purchaser? how to limit reporting to retailers? how to guarantee single report?
-    function reportReusableBottlePurchase(address purchaser, uint count) public {
-        AccountingPeriod storage period = getCurrentPeriod();
-        period.consumers[msg.sender].reusableBottlePurchases = period.consumers[msg.sender].reusableBottlePurchases + count;
+    function reportReusableBottlePurchase(address _address, uint count) public timeDependent {
+        Period storage period = getAccountingPeriod();
+        Consumer storage consumer = period.consumers[_address];
+
+        if (consumer.lastResetPeriodIndex < period.index) {
+            resetConsumer(consumer);
+        }
+
+        consumer.reusableBottlePurchases = consumer.reusableBottlePurchases + count;
         period.reusableBottlePurchases = period.reusableBottlePurchases + count;
     }
 
-    // REWARDS/DONATIONS
-    function unlockReward() public {
-        
-        /*if (currentPeriod == Period.A) {
-            currentPeriod = Period.B;
+    // TODO: how to prove count? how to guarantee single report?
+    function reportThrownAwayBottles(uint count) public timeDependent {
+        require(collectors[msg.sender].isApproved);
+
+        Period storage period = getAccountingPeriod();
+        period.thrownAwayOneWayBottles = period.thrownAwayOneWayBottles + count;
+
+        agencyFund = agencyFund + (count * depositValue) * shareOfAgencies;
+    }
+
+    // MARK: Reward/Donation
+    function claimReward() public timeDependent {
+        require(currentPeriodIndex > 1);
+
+        Period storage period = getRewardPeriod();
+        Consumer storage consumer = period.consumers[msg.sender];
+
+        if (consumer.lastResetPeriodIndex < period.index) {
+            resetConsumer(consumer);
         } else {
-            currentPeriod = Period.A;
-        }*/
+            require(!consumer.hasClaimedReward && consumer.reusableBottlePurchases > 0);
 
-        // previousThrownAwayOneWayBottleCount = currentThrownAwayOneWayBottleCount;
-        //previousReusableBottlePurchasesTotal = currentReusableBottlePurchasesTotal;
-        // TODO: can't assign mappings
-        //previousReusableBottlePurchasesForAddress = currentReusableBottlePurchasesForAddress;
+            uint amount = getRewardAmount(consumer.reusableBottlePurchases, period.index);
+            require(amount > 0);
 
-        //currentThrownAwayOneWayBottleCount = 0;
-        //currentReusableBottlePurchasesTotal = 0;
-        // TODO: reset mapping purchases count to addresses
+            msg.sender.transfer(amount);
+            consumer.hasClaimedReward = true;
+        }
     }
 
     // TODO: how to handle remaining non-claimed rewards/donations?
-    function claimDonation() public {
+    function claimDonation() public timeDependent {
+        require(currentPeriodIndex > 1);
+
         EnvironmentalAgency storage agency = agencies[msg.sender];
-        require(agency.isApproved && !agency.hasClaimedDonation);
+        require(agency.isApproved);
+        require(agency.joined < now - periodLength);
 
-        AccountingPeriod storage period = getRewardPeriod();
-        uint share = 1 / approvedAgencies;
-        uint amount = share * (period.thrownAwayOneWayBottles * depositValue) * shareOfAgencies;
+        Period memory period = getRewardPeriod();
+        require(agency.lastClaimPeriodIndex < period.index);
+
+        uint amount = getDonationAmount();
+        require(amount > 0);
+
         msg.sender.transfer(amount);
-        agency.hasClaimedDonation = true;
+        agency.lastClaimPeriodIndex = period.index;
     }
 
-    function claimReward() public {
-        AccountingPeriod storage period = getRewardPeriod();
-        Consumer storage sender = period.consumers[msg.sender];
-        require(!sender.hasClaimedReward);
-        uint share = sender.reusableBottlePurchases / period.reusableBottlePurchases;
-        require(share > 0);
-
-        uint amount = share * (period.thrownAwayOneWayBottles * depositValue) * (1 - shareOfAgencies);
-        msg.sender.transfer(amount);
-        sender.hasClaimedReward = true;
-    }
-
-    // ENVIRONMENTAL AGENCIES
+    // MARK: Environmental Agencies
     function registerAsEnvironmentalAgency() public {
-        EnvironmentalAgency storage sender = agencies[msg.sender];
-        require(!sender.isApproved && !sender.isApprovalPending);
+        EnvironmentalAgency storage requester = agencies[msg.sender];
+        require(!requester.isApproved && !requester.isApprovalPending);
 
-        sender.isApprovalPending = true;
+        requester.isApprovalPending = true;
     }
 
     function unregisterAsEnvironmentalAgency() public {
-        EnvironmentalAgency storage sender = agencies[msg.sender];
-        require(sender.isApproved || sender.isApprovalPending);
+        EnvironmentalAgency storage agency = agencies[msg.sender];
+        require(agency.isApproved || agency.isApprovalPending);
 
-        if (sender.isApproved) {
+        if (agency.isApproved) {
             approvedAgencies = approvedAgencies - 1;
         }
 
-        sender.isApproved = false;
-        sender.isApprovalPending = false;
+        agency.isApproved = false;
+        agency.isApprovalPending = false;
         // TODO: check if deletion makes sense here (delete collectors[_address])
     }
 
     function addEnvironmentalAgency(address _address) public onlyOwner {
-        EnvironmentalAgency storage sender = agencies[msg.sender];
-        require(!sender.isApproved);
+        EnvironmentalAgency storage agency = agencies[_address];
+        require(!agency.isApproved);
 
-        sender.isApproved = true;
-        sender.isApprovalPending = false;
         approvedAgencies = approvedAgencies + 1;
+
+        agency.isApproved = true;
+        agency.isApprovalPending = false;
+        agency.joined = now;
     }
 
     function removeEnvironmentalAgency(address _address) public onlyOwner {
-        EnvironmentalAgency storage sender = agencies[msg.sender];
-        require(sender.isApproved);
+        EnvironmentalAgency storage agency = agencies[_address];
+        require(agency.isApproved);
 
-        sender.isApproved = false;
-        sender.isApprovalPending = false;
-        // TODO: check if deletion makes sense here (delete collectors[_address])
         approvedAgencies = approvedAgencies - 1;
+
+        agency.isApproved = false;
+        agency.isApprovalPending = false;
+        // TODO: check if deletion makes sense here (delete collectors[_address])
     }
 
-    // GARBAGE COLLECTION
+    // MARK: Garbage Collectors
     function registerAsGarbageCollector() public {
-        GarbageCollector storage sender = collectors[msg.sender];
-        require(!sender.isApproved && !sender.isApprovalPending);
+        GarbageCollector storage requester = collectors[msg.sender];
+        require(!requester.isApproved && !requester.isApprovalPending);
 
-        sender.isApprovalPending = true;
+        requester.isApprovalPending = true;
     }
 
     function unregisterAsGarbageCollector() public {
-        GarbageCollector storage sender = collectors[msg.sender];
-        require(sender.isApproved || sender.isApprovalPending);
+        GarbageCollector storage collector = collectors[msg.sender];
+        require(collector.isApproved || collector.isApprovalPending);
 
-        sender.isApproved = false;
-        sender.isApprovalPending = false;
+        collector.isApproved = false;
+        collector.isApprovalPending = false;
         // TODO: check if deletion makes sense here (delete collectors[_address])
     }
 
     function addGarbageCollector(address _address) public onlyOwner {
-        GarbageCollector storage sender = collectors[msg.sender];
-        require(!sender.isApproved);
+        GarbageCollector storage collector = collectors[_address];
+        require(!collector.isApproved);
 
-        sender.isApproved = true;
-        sender.isApprovalPending = false;
+        collector.isApproved = true;
+        collector.isApprovalPending = false;
     }
 
     function removeGarbageCollector(address _address) public onlyOwner {
-        GarbageCollector storage sender = collectors[msg.sender];
-        require(sender.isApproved);
+        GarbageCollector storage collector = collectors[_address];
+        require(collector.isApproved);
 
-        sender.isApproved = false;
-        sender.isApprovalPending = false;
+        collector.isApproved = false;
+        collector.isApprovalPending = false;
         // TODO: check if deletion makes sense here (delete collectors[_address])
     }
 

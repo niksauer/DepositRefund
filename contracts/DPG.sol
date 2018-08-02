@@ -104,9 +104,9 @@ contract DPG {
     // refund = amount * 0.25€ (for one-way bottles)
     // TODO: how to limit refunds to take-back points (use signed receipts)? how to guarantee single refund (track used receipts)?
     function refund(uint bottleCount) public {
-        uint amount = SafeMath.mul(bottleCount, DEPOSIT_VALUE);
-        require(amount > 0);
+        require(bottleCount > 0);
 
+        uint amount = SafeMath.mul(bottleCount, DEPOSIT_VALUE);
         msg.sender.transfer(amount);
     }
 

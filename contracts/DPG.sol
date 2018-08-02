@@ -49,7 +49,7 @@ contract DPG {
     uint public constant DEPOSIT_VALUE = 1 ether;
 
     // TODO: floats are not supported
-    //uint public constant SHARE_OF_AGENCIES = 0.5;
+    // uint public constant SHARE_OF_AGENCIES = 0.5;
 
     uint public currentPeriodIndex;
     PeriodName public currentPeriodName;
@@ -96,6 +96,7 @@ contract DPG {
     // leave deposit upon buying newly introduced bottle (i.e. bottle put into circulation through purchase)
     // TODO: use fallback function instead?
     function deposit(uint bottleCount) public payable {
+        require(bottleCount > 0);
         require(msg.value == SafeMath.mul(bottleCount, DEPOSIT_VALUE));
     }
 

@@ -1,0 +1,9 @@
+{
+    "extends": "default",
+    "rules": {
+      "indent": ["warn", 4],
+      "max-line-length": false,
+      "not-rely-on-time": false,
+      "separate-by-one-line-in-contract": false
+    }
+}

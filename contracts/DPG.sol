@@ -1,5 +1,7 @@
 pragma solidity ^0.4.24;
 
+import 'openzeppelin-solidity/contracts/math/SafeMath.sol';
+
 contract DPG {
 
     // MARK: - Types
@@ -39,8 +41,9 @@ contract DPG {
     // TODO: how to calculate deposit value? how to account for fluctuation in ether's value?
     uint constant depositValue = 1 ether;
 
-    // TODO: rationales are not supported
-    uint constant shareOfAgencies = 0.5;
+    // TODO: floats are not supported
+    //uint constant shareOfAgencies = 0.5;
+
     uint approvedAgencies;
     mapping(address => EnvironmentalAgency) agencies;
 
@@ -66,10 +69,10 @@ contract DPG {
         if (msg.sender == owner) _;
     }
 
-    modifier timeDependent() {
+    modifier periodDependent() {
         Period memory period = getAccountingPeriod();
 
-        if (now < period.start + periodLength) {
+        if (now < SafeMath.add(period.start, periodLength)) {
             _;
         } else {
             setNextPeriod();
@@ -78,7 +81,7 @@ contract DPG {
     }
 
     // MARK: - Initialization
-    constructor() {
+    constructor() public {
         owner = msg.sender;
         currentPeriodIndex = 1;
         currentPeriodName = PeriodName.A;
@@ -90,7 +93,7 @@ contract DPG {
     // MARK: - Private Methods
     function setNextPeriod() internal {
         Period storage period = getAccountingPeriod();
-        require(now >= period.start + periodLength);
+        require(now >= SafeMath.add(period.start, periodLength));
 
         reusableBottlePurchasesInPeriod.push(period.reusableBottlePurchases);
         thrownAwayOneWayBottlesInPeriod.push(period.thrownAwayOneWayBottles);
@@ -101,7 +104,7 @@ contract DPG {
             currentPeriodName = PeriodName.A;
         }
 
-        currentPeriodIndex = currentPeriodIndex + 1;
+        currentPeriodIndex = SafeMath.add(currentPeriodIndex, 1);
 
         if (currentPeriodIndex > 2) {
             period = getAccountingPeriod();
@@ -117,7 +120,7 @@ contract DPG {
         return currentPeriodName == PeriodName.A ? periodB : periodA;
     }
 
-    function resetPeriod(Period period) internal {
+    function resetPeriod(Period period) internal view {
         period.index = currentPeriodIndex;
         period.start = now;
         period.reusableBottlePurchases = 0;
@@ -126,7 +129,7 @@ contract DPG {
 
     function resetConsumer(Consumer consumer) internal {
         if (consumer.lastResetPeriodIndex > 0 && !consumer.hasClaimedReward && consumer.reusableBottlePurchases > 0) {
-            unclaimedRewards = unclaimedRewards + getRewardAmount(consumer.reusableBottlePurchases, consumer.lastResetPeriodIndex);
+            unclaimedRewards = SafeMath.add(unclaimedRewards, getRewardAmount(consumer.reusableBottlePurchases, consumer.lastResetPeriodIndex));
         }
 
         consumer.reusableBottlePurchases = 0;
@@ -135,13 +138,15 @@ contract DPG {
     }
 
     function getRewardAmount(uint reusableBottlePurchases, uint periodIndex) internal view returns (uint amount) {
-        uint consumerShare = reusableBottlePurchases / reusableBottlePurchasesInPeriod[periodIndex];
-        amount = consumerShare * (thrownAwayOneWayBottlesInPeriod[periodIndex] * depositValue) * (1 - shareOfAgencies);
+        uint totalReusableBottlePurchases = reusableBottlePurchasesInPeriod[periodIndex];
+        uint thrownAwayOneWayBottles = thrownAwayOneWayBottlesInPeriod[periodIndex];
+
+        //uint consumerShare = reusableBottlePurchases / totalReusableBottlePurchases;
+        amount = SafeMath.mul(SafeMath.div(reusableBottlePurchases, totalReusableBottlePurchases), SafeMath.div(SafeMath.mul(thrownAwayOneWayBottles, depositValue), 2));
     }
 
     function getDonationAmount() internal view returns (uint amount) {
-        uint singleAgencyShare = (1 / approvedAgencies);
-        amount = singleAgencyShare * agencyFund;
+        amount = SafeMath.mul(SafeMath.div(1, approvedAgencies), agencyFund);
     }
 
     // MARK: - Public Methods
@@ -149,20 +154,22 @@ contract DPG {
     // leave deposit upon buying newly introduced bottle (i.e. bottle put into circulation through purchase)
     // TODO: use fallback function instead?
     function deposit(uint bottleCount) public payable {
-        require(msg.value == bottleCount * depositValue);
+        require(msg.value == SafeMath.mul(bottleCount, depositValue));
     }
 
     // refund take-back point up to the amount of bottles it accepted
     // refund = amount * 0.25€ (for one-way bottles)
     // TODO: how to limit refunds to take-back points (use signed receipts)? how to guarantee single refund (track used receipts)?
     function refund(uint bottleCount) public {
-        uint amount = bottleCount * depositValue;
+        uint amount = SafeMath.mul(bottleCount, depositValue);
+        require(amount > 0);
+
         msg.sender.transfer(amount);
     }
 
     // MARK: Data Reporting
     // TODO: how to prove count and purchaser? how to limit reporting to retailers? how to guarantee single report?
-    function reportReusableBottlePurchase(address _address, uint count) public timeDependent {
+    function reportReusableBottlePurchase(address _address, uint count) public periodDependent {
         Period storage period = getAccountingPeriod();
         Consumer storage consumer = period.consumers[_address];
 
@@ -170,22 +177,22 @@ contract DPG {
             resetConsumer(consumer);
         }
 
-        consumer.reusableBottlePurchases = consumer.reusableBottlePurchases + count;
-        period.reusableBottlePurchases = period.reusableBottlePurchases + count;
+        consumer.reusableBottlePurchases = SafeMath.add(consumer.reusableBottlePurchases, count);
+        period.reusableBottlePurchases = SafeMath.add(period.reusableBottlePurchases, count);
     }
 
     // TODO: how to prove count? how to guarantee single report?
-    function reportThrownAwayBottles(uint count) public timeDependent {
+    function reportThrownAwayBottles(uint count) public periodDependent {
         require(collectors[msg.sender].isApproved);
 
         Period storage period = getAccountingPeriod();
-        period.thrownAwayOneWayBottles = period.thrownAwayOneWayBottles + count;
+        period.thrownAwayOneWayBottles = SafeMath.add(period.thrownAwayOneWayBottles, count);
 
-        agencyFund = agencyFund + (count * depositValue) * shareOfAgencies;
+        agencyFund = SafeMath.add(agencyFund, SafeMath.div(SafeMath.mul(count, depositValue), 2));
     }
 
     // MARK: Reward/Donation
-    function claimReward() public timeDependent {
+    function claimReward() public periodDependent {
         require(currentPeriodIndex > 1);
 
         Period storage period = getRewardPeriod();
@@ -204,12 +211,12 @@ contract DPG {
         }
     }
 
-    function claimDonation() public timeDependent {
+    function claimDonation() public periodDependent {
         require(currentPeriodIndex > 1);
 
         EnvironmentalAgency storage agency = agencies[msg.sender];
         require(agency.isApproved);
-        require(agency.joined < now - periodLength);
+        require(agency.joined < SafeMath.sub(now, periodLength));
 
         Period memory period = getRewardPeriod();
         require(agency.lastClaimPeriodIndex < period.index);
@@ -235,7 +242,7 @@ contract DPG {
         require(agency.isApproved || agency.isApprovalPending);
 
         if (agency.isApproved) {
-            approvedAgencies = approvedAgencies - 1;
+            approvedAgencies = SafeMath.sub(approvedAgencies, 1);
         }
 
         agency.isApproved = false;
@@ -246,7 +253,7 @@ contract DPG {
         EnvironmentalAgency storage agency = agencies[_address];
         require(!agency.isApproved);
 
-        approvedAgencies = approvedAgencies + 1;
+        approvedAgencies = SafeMath.add(approvedAgencies, 1);
 
         agency.isApproved = true;
         agency.isApprovalPending = false;
@@ -258,7 +265,7 @@ contract DPG {
         EnvironmentalAgency storage agency = agencies[_address];
         require(agency.isApproved);
 
-        approvedAgencies = approvedAgencies - 1;
+        approvedAgencies = SafeMath.sub(approvedAgencies, 1);
 
         agency.isApproved = false;
         agency.isApprovalPending = false;

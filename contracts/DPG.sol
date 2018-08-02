@@ -42,6 +42,10 @@ contract DPG {
 
     mapping(address => GarbageCollector) internal collectors;
 
+    PeriodName internal currentPeriodName;
+    Period internal periodA;
+    Period internal periodB;
+
     // MARK: - Public Properties
     uint public constant PERIOD_LENGTH = 4 weeks;
 
@@ -52,9 +56,6 @@ contract DPG {
     // uint public constant SHARE_OF_AGENCIES = 0.5;
 
     uint public currentPeriodIndex;
-    PeriodName public currentPeriodName;
-    Period public periodA;
-    Period public periodB;
 
     uint[] public reusableBottlePurchasesInPeriod;
     uint[] public thrownAwayOneWayBottlesInPeriod;
@@ -112,7 +113,10 @@ contract DPG {
 
     // MARK: Data Reporting
     // TODO: how to prove count and purchaser? how to limit reporting to retailers? how to guarantee single report?
-    function reportReusableBottlePurchase(address _address, uint count) public periodDependent {
+    function reportReusableBottlePurchase(address _address, uint bottleCount) public periodDependent {
+        require(bottleCount > 0);
+        require(_address != address(0));
+
         Period storage period = getAccountingPeriod();
         Consumer storage consumer = period.consumers[_address];
 
@@ -120,18 +124,18 @@ contract DPG {
             resetConsumer(consumer);
         }
 
-        consumer.reusableBottlePurchases = SafeMath.add(consumer.reusableBottlePurchases, count);
-        period.reusableBottlePurchases = SafeMath.add(period.reusableBottlePurchases, count);
+        consumer.reusableBottlePurchases = SafeMath.add(consumer.reusableBottlePurchases, bottleCount);
+        period.reusableBottlePurchases = SafeMath.add(period.reusableBottlePurchases, bottleCount);
     }
 
     // TODO: how to prove count? how to guarantee single report?
-    function reportThrownAwayBottles(uint count) public periodDependent {
+    function reportThrownAwayBottles(uint bottleCount) public periodDependent {
         require(collectors[msg.sender].isApproved);
 
         Period storage period = getAccountingPeriod();
-        period.thrownAwayOneWayBottles = SafeMath.add(period.thrownAwayOneWayBottles, count);
+        period.thrownAwayOneWayBottles = SafeMath.add(period.thrownAwayOneWayBottles, bottleCount);
 
-        agencyFund = SafeMath.add(agencyFund, SafeMath.div(SafeMath.mul(count, DEPOSIT_VALUE), 2));
+        agencyFund = SafeMath.add(agencyFund, SafeMath.div(SafeMath.mul(bottleCount, DEPOSIT_VALUE), 2));
     }
 
     // MARK: Reward/Donation
@@ -246,6 +250,23 @@ contract DPG {
 
         collector.isApproved = false;
         collector.isApprovalPending = false;
+    }
+
+    // MARK: - Getters
+    function getPeriodStart() public view returns (uint) {
+        return getAccountingPeriod().start;
+    }
+
+    function getReusableBottlePurchases() public view returns (uint) {
+        return getAccountingPeriod().reusableBottlePurchases;
+    }
+
+    function getReusableBottlePurchasesByConsumer(address _consumer) public view returns (uint) {
+        return getAccountingPeriod().consumers[_consumer].reusableBottlePurchases;
+    }
+
+    function getThrownAwayOneWayBottles() public view returns (uint) {
+        return getAccountingPeriod().thrownAwayOneWayBottles;
     }
 
     // MARK: - Private Methods

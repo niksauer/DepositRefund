@@ -1,13 +1,47 @@
 const DPG = artifacts.require("DPG");
 
+const timeTravel = function (seconds) {
+    return new Promise((resolve, reject) => {
+        web3.currentProvider.sendAsync({
+            jsonrpc: "2.0",
+            method: "evm_increaseTime",
+            params: [seconds], // 86400 seconds in a day
+            id: new Date().getTime()
+        }, (error, result) => {
+            if (error) { 
+                return reject(error); 
+            } else {
+                return resolve(result);
+            }
+        });
+    });
+};
+
+const mineBlock = function() {
+    return new Promise((resolve, reject) => {
+        web3.currentProvider.sendAsync({
+            jsonrpc: "2.0",
+            method: "evm_mine",
+            id: new Date().getTime()
+        }, (error, result) => {
+            if (error) { 
+                return reject(error); 
+            } else {
+                return resolve(result);
+            }
+        });
+    });
+};
+
 const DEPOSIT_VALUE = web3.toWei(1, "ether");
 
-contract("DPG Garbage Collector Test", async (accounts) => {
+
+contract("DPG Report Garbage Test", async (accounts) => {
     const contract = await DPG.deployed();
     const owner = accounts[0];
-    const collectorA = accounts[1];
+    const requestor = accounts[1];
+    const collectorA = accounts[2];
     const collectorB = "0x0000000000000000000000000000000000000000";
-    const requestor = accounts[2];
 
     // function reportThrownAwayBottles(uint bottleCount) public periodDependent
     it("should fail to accept report count of thrown away bottles because bottle count (0) is not greater than or equal to one (1)", async() => {
@@ -15,10 +49,11 @@ contract("DPG Garbage Collector Test", async (accounts) => {
 
         try {
             await contract.reportThrownAwayOneWayBottles(bottles, {from: collectorA});
-            throw new Error("Did accept report even though bottle count (0) is not greater than or equal to one (1)");
         } catch (error) {
             return true;
         }
+
+        throw new Error("Did accept report even though bottle count (0) is not greater than or equal to one (1)");
     });
 
     it("should fail to accept reported count of thrown away bottles (3) because collector A is not an approved garbage collector", async() => {
@@ -26,20 +61,22 @@ contract("DPG Garbage Collector Test", async (accounts) => {
 
         try {
             await contract.reportThrownAwayOneWayBottles(bottles, {from: collectorA});
-            throw new Error("Did accept report even though collector A is not an approved garbage collector");
         } catch (error) {
             return true;
         }
+
+        throw new Error("Did accept report even though collector A is not an approved garbage collector");
     });
     
     // function addGarbageCollector(address _address) public onlyOwner
-    it("should fail to add collector A as an approved garbage collector because requestor is not the contract owner", async() => {
+    it("should fail to add collector A as an approved garbage collector because caller is not the contract owner", async() => {
         try {
             await contract.addGarbageCollector(collectorA, {from: requestor});
-            throw new Error("Did add collector A even though requestor is not the contract owner");
         } catch (error) {
             return true;
         }
+
+        throw new Error("Did add collector A even though caller is not the contract owner");
     });
 
     it("should add collector A as an approved garbage collector because caller is contract owner", async() => {
@@ -50,19 +87,21 @@ contract("DPG Garbage Collector Test", async (accounts) => {
     it("should fail to add collector B as an approved garbage collector because collector's address (0x0) equals that of zero address", async() => {
         try {
             await contract.addGarbageCollector(collectorB, {from: owner});
-            throw new Error("Did accept collector B as an approved gargabe collector even though collector's address (0x0) equals that of zero address");
         } catch (error) {
             return true;
         }
+
+        throw new Error("Did accept collector B as an approved gargabe collector even though collector's address (0x0) equals that of zero address");
     });
 
     it("should fail to add collector A as an approved garbage collector because collector A is already approved", async() => {
         try {
             await contract.addGarbageCollector(collectorA, {from: owner});
-            throw new Error("Did accept collector A as an approved gargabe collector even though collector was already approved");
         } catch (error) {
             return true;
         }
+
+        throw new Error("Did accept collector A as an approved gargabe collector even though collector was already approved");
     });
     
     // // function reportThrownAwayBottles(uint bottleCount) public periodDependent
@@ -87,6 +126,21 @@ contract("DPG Garbage Collector Test", async (accounts) => {
 
     it("should also increase agency fund by 50% of reported count's deposit value (6.5 ETH) because another report of 13 bottles was accepted previously", async() => {
         assert.equal(await contract.agencyFund(), (firstReportPeriod1 + secondReportPeriod1) * DEPOSIT_VALUE * 0.5);
+    });
+
+    const firstReportPeriod2 = 50;
+
+    it("should set reported count of thrown away bottles (50) as total because current time is advanced by 4 week (28 days)", async() => {
+        await timeTravel(86400 * 28);
+        await mineBlock();
+        
+        await contract.reportThrownAwayOneWayBottles(firstReportPeriod2, {from: collectorA});
+
+        assert.equal(await contract.getThrownAwayOneWayBottles(), firstReportPeriod2);
+    });
+
+    it("should also increase agency fund by 50% of reported count's deposit value (25 ETH) because funds are not reset with each period", async() => {
+        assert.equal(await contract.agencyFund(), (firstReportPeriod1 + secondReportPeriod1 + firstReportPeriod2) * DEPOSIT_VALUE * 0.5);
     });
 
 });

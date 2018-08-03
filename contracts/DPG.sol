@@ -132,6 +132,7 @@ contract DPG {
     }
 
     // TODO: how to prove count? how to guarantee single report?
+    // => tested
     function reportThrownAwayOneWayBottles(uint bottleCount) public periodDependent {
         require(bottleCount > 0);
         require(collectors[msg.sender].isApproved);
@@ -157,16 +158,19 @@ contract DPG {
             uint amount = getRewardAmount(consumer.reusableBottlePurchases, period.index);
             require(amount > 0);
 
-            msg.sender.transfer(amount);
             consumer.hasClaimedReward = true;
+            agencyFund = agencyFund - amount;
+            msg.sender.transfer(amount);
         }
     }
 
+    // => tested
     function claimDonation() public periodDependent {
         require(currentPeriodIndex > 1);
 
         EnvironmentalAgency storage agency = agencies[msg.sender];
         require(agency.isApproved);
+        
         require(agency.joined < SafeMath.sub(now, PERIOD_LENGTH));
 
         Period memory period = getRewardPeriod();
@@ -174,9 +178,10 @@ contract DPG {
 
         uint amount = getDonationAmount();
         require(amount > 0);
-
-        msg.sender.transfer(amount);
+        
         agency.lastClaimPeriodIndex = period.index;
+        agencyFund = agencyFund - amount;
+        msg.sender.transfer(amount);
     }
 
     // MARK: Environmental Agencies
@@ -200,6 +205,7 @@ contract DPG {
         agency.isApprovalPending = false;
     }
 
+    // => tested
     function addEnvironmentalAgency(address _address) public onlyOwner {
         require(_address != address(0));
         
@@ -266,16 +272,25 @@ contract DPG {
         return getAccountingPeriod().reusableBottlePurchases;
     }
 
-    function getReusableBottlePurchasesByConsumer(address consumer) public view returns (uint) {
-        return getAccountingPeriod().consumers[consumer].reusableBottlePurchases;
+    function getReusableBottlePurchasesByConsumer(address _address) public view returns (uint) {
+        return getAccountingPeriod().consumers[_address].reusableBottlePurchases;
     }
 
     function getThrownAwayOneWayBottles() public view returns (uint) {
         return getAccountingPeriod().thrownAwayOneWayBottles;
     }
 
-    function isApprovedGarbageCollector(address collector) public view returns (bool) {
-        return collectors[collector].isApproved;
+    function isApprovedGarbageCollector(address _address) public view returns (bool) {
+        return collectors[_address].isApproved;
+    }
+
+    function isApprovedEnvironmentalAgency(address _address) public view returns (bool) {
+        return agencies[_address].isApproved;
+    }
+
+    function hasClaimedDonation(address _address) public view returns (bool) {
+        Period storage rewardPeriod = getRewardPeriod();
+        return agencies[_address].lastClaimPeriodIndex == rewardPeriod.index;
     }
 
     // MARK: - Private Methods

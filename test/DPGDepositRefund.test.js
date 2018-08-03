@@ -5,11 +5,10 @@ const DEPOSIT_VALUE = web3.toWei(1, "ether");
 
 contract("DPG Deposit/Refund Test", async (accounts) => {
     let contract;
-    const creator = accounts[0];
-    const consumerA = accounts[1];
+    const consumerA = accounts[0];
 
     // hooks
-    beforeEach("redeploy contract for each test", async function () {
+    beforeEach("redeploy contract for each test", async() => {
         contract = await DPG.new();
     });
 
@@ -19,22 +18,23 @@ contract("DPG Deposit/Refund Test", async (accounts) => {
 
         try {
             await contract.deposit(bottles);
-            throw new Error("Did accept deposits even though bottle count (0) is not greater than or equal to one (1)");
         } catch (error) {
             return true;
         }
+
+        throw new Error("Did accept deposits even though bottle count (0) is not greater than or equal to one (1)");
     });
 
     it("should fail to accept deposits because value (2.99) does not equal that of bottle count (3), ", async() => {
         const bottles = 3;
-        const value = 2.99 * DEPOSIT_VALUE;
 
         try {
-            await contract.deposit(bottles, {value: value});
-            throw new Error("Did accept deposits even though value (2.99) does not equal that of bottle count (3)");
+            await contract.deposit(bottles, {value: 2.99 * DEPOSIT_VALUE});
         } catch (error) {
             return true;
         }
+
+        throw new Error("Did accept deposits even though value (2.99) does not equal that of bottle count (3)");
     });
 
     it("should accept deposits because bottle count (1) is greater than or equal to one (1) and value (1) equals that of bottle count (1)", async () => {
@@ -63,10 +63,11 @@ contract("DPG Deposit/Refund Test", async (accounts) => {
 
         try {
             await contract.refund(bottles);
-            throw new Error("Did refund deposits even though bottle count (0) is not greater than or equal to one (1)");
         } catch (error) {
             return true;
         }
+
+        throw new Error("Did refund deposits even though bottle count (0) is not greater than or equal to one (1)");
     });
 
     // it("should refund deposits because bottle count (1) is greater than or equal to one (1)", async() => {

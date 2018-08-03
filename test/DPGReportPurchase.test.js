@@ -52,10 +52,11 @@ contract("DPG Report Purchase Test", async (accounts) => {
 
         try {
             await contract.reportReusableBottlePurchase(consumerA, bottles, {from: reporter});
-            throw new Error("Did accept report even though bottle count (0) is not greater than or equal to one (1)");
         } catch (error) {
             return true;
         }
+
+        throw new Error("Did accept report even though bottle count (0) is not greater than or equal to one (1)");
     });
 
     it("should fail to accept reported count of purchased reusable bottles (3) for consumer A because consumer's address (0x0) equals that of zero address", async() => {
@@ -63,10 +64,11 @@ contract("DPG Report Purchase Test", async (accounts) => {
 
         try {
             await contract.reportReusableBottlePurchase(zeroAddress, bottles, {from: reporter});
-            throw new Error("Did accept report even though consumer's address (0x0) equals that of zero address");
         } catch (error) {
             return true;
         }
+
+        throw new Error("Did accept report even though consumer's address (0x0) equals that of zero address");
     });
 
     const firstPurchaseConsumerAPeriod1 = 100;
@@ -147,7 +149,6 @@ contract("DPG Report Purchase Test", async (accounts) => {
 
     const firstPurchaseConsumerAPeriod2 = 6;
 
-    // should set total purchases accordingly (6)
     it("should set reported count of purchased resuable bottles for consumer A to 6 because a report of 6 bottles was sent for consumer A and period was advanced", async() => {
         await contract.reportReusableBottlePurchase(consumerA, firstPurchaseConsumerAPeriod2, {from: reporter});
 
@@ -170,8 +171,8 @@ contract("DPG Report Purchase Test", async (accounts) => {
         assert.equal(currentPeriodIndex, 3);
     });
 
-    it("should set reported count of purchased resuable bottles for consumer A to 8 because period was advanced", async() => {
-        await contract.reportReusableBottlePurchase(consumerA, firstPurchaseConsumerAPeriod3, {from: reporter});
+    it("should also set reported count of purchased resuable bottles for consumer A to 8 because period was advanced", async() => {
+        assert.equal(await contract.getReusableBottlePurchasesByConsumer(consumerA), firstPurchaseConsumerAPeriod3);
     });
 
 });

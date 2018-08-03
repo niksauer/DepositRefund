@@ -1,7 +1,5 @@
 const DPG = artifacts.require("DPG");
 
-const DEPOSIT_VALUE = web3.toWei(1, "ether");
-
 const timeTravel = function (seconds) {
     return new Promise((resolve, reject) => {
         web3.currentProvider.sendAsync({
@@ -34,6 +32,7 @@ const mineBlock = function() {
         });
     });
 };
+
 
 contract("DPG Report Purchase Test", async (accounts) => {
     const contract = await DPG.deployed();

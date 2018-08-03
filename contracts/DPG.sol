@@ -96,6 +96,7 @@ contract DPG {
     // MARK: Deposit/Refund
     // leave deposit upon buying newly introduced bottle (i.e. bottle put into circulation through purchase)
     // TODO: use fallback function instead?
+    // => tested
     function deposit(uint bottleCount) public payable {
         require(bottleCount > 0);
         require(msg.value == SafeMath.mul(bottleCount, DEPOSIT_VALUE));
@@ -104,6 +105,7 @@ contract DPG {
     // refund take-back point up to the amount of bottles it accepted
     // refund = amount * 0.25€ (for one-way bottles)
     // TODO: how to limit refunds to take-back points (use signed receipts)? how to guarantee single refund (track used receipts)?
+    // => tested
     function refund(uint bottleCount) public {
         require(bottleCount > 0);
 
@@ -113,6 +115,7 @@ contract DPG {
 
     // MARK: Data Reporting
     // TODO: how to prove count and purchaser? how to limit reporting to retailers? how to guarantee single report?
+    // => tested
     function reportReusableBottlePurchase(address _address, uint bottleCount) public periodDependent {
         require(bottleCount > 0);
         require(_address != address(0));
@@ -129,7 +132,8 @@ contract DPG {
     }
 
     // TODO: how to prove count? how to guarantee single report?
-    function reportThrownAwayBottles(uint bottleCount) public periodDependent {
+    function reportThrownAwayOneWayBottles(uint bottleCount) public periodDependent {
+        require(bottleCount > 0);
         require(collectors[msg.sender].isApproved);
 
         Period storage period = getAccountingPeriod();
@@ -197,6 +201,8 @@ contract DPG {
     }
 
     function addEnvironmentalAgency(address _address) public onlyOwner {
+        require(_address != address(0));
+        
         EnvironmentalAgency storage agency = agencies[_address];
         require(!agency.isApproved);
 
@@ -235,7 +241,10 @@ contract DPG {
         collector.isApprovalPending = false;
     }
 
+    // => tested
     function addGarbageCollector(address _address) public onlyOwner {
+        require(_address != address(0));
+
         GarbageCollector storage collector = collectors[_address];
         require(!collector.isApproved);
 
@@ -263,6 +272,10 @@ contract DPG {
 
     function getThrownAwayOneWayBottles() public view returns (uint) {
         return getAccountingPeriod().thrownAwayOneWayBottles;
+    }
+
+    function isApprovedGarbageCollector(address collector) public view returns (bool) {
+        return collectors[collector].isApproved;
     }
 
     // MARK: - Private Methods

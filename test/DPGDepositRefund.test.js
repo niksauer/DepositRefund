@@ -13,23 +13,6 @@ contract("DPG Deposit/Refund Test", async (accounts) => {
         contract = await DPG.new();
     });
 
-    // constructor() public
-    // it("should set creator as the owner", async() => {
-    //     assert.equal(await contract.owner(), creator);
-    // });
-
-    // it("should set current period index to 1", async() => {
-    //     assert.equal(await contract.currentPeriodIndex(), 1);
-    // });
-
-    // it("should set current period name to A (0) ", async() => {
-    //     assert.equal(await contract.currentPeriodName(), 0);
-    // })
-
-    // it("should set unclaimed rewards to 0", async() => {
-    //     assert.equal(await contract.unclaimedRewards(), 0);
-    // });
-
     // function deposit(uint bottleCount) public payable
     it("should fail to accept deposits because bottle count (0) is not greater than or equal to one (1)", async() => {
         const bottles = 0;

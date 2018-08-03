@@ -16,7 +16,6 @@ contract DPG {
 
     struct Period {
         uint index;
-        uint start;
         uint reusableBottlePurchases;
         uint thrownAwayOneWayBottles;
         mapping(address => Consumer) consumers;
@@ -56,6 +55,7 @@ contract DPG {
     // uint public constant SHARE_OF_AGENCIES = 0.5;
 
     uint public currentPeriodIndex;
+    uint public currentPeriodStart;
 
     uint[] public reusableBottlePurchasesInPeriod;
     uint[] public thrownAwayOneWayBottlesInPeriod;
@@ -74,7 +74,7 @@ contract DPG {
     modifier periodDependent() {
         Period memory period = getAccountingPeriod();
 
-        if (now < SafeMath.add(period.start, PERIOD_LENGTH)) {
+        if (now < SafeMath.add(currentPeriodStart, PERIOD_LENGTH)) {
             _;
         } else {
             setNextPeriod();
@@ -86,9 +86,9 @@ contract DPG {
     constructor() public {
         owner = msg.sender;
         currentPeriodIndex = 1;
+        currentPeriodStart = now;
         currentPeriodName = PeriodName.A;
         periodA.index = currentPeriodIndex;
-        periodA.start = now;
         unclaimedRewards = 0;
     }
 
@@ -120,7 +120,7 @@ contract DPG {
         Period storage period = getAccountingPeriod();
         Consumer storage consumer = period.consumers[_address];
 
-        if (consumer.lastResetPeriodIndex < period.index) {
+        if (consumer.lastResetPeriodIndex < currentPeriodIndex) {
             resetConsumer(consumer);
         }
 
@@ -145,7 +145,7 @@ contract DPG {
         Period storage period = getRewardPeriod();
         Consumer storage consumer = period.consumers[msg.sender];
 
-        if (consumer.lastResetPeriodIndex < period.index) {
+        if (consumer.lastResetPeriodIndex < currentPeriodIndex) {
             resetConsumer(consumer);
         } else {
             require(!consumer.hasClaimedReward && consumer.reusableBottlePurchases > 0);
@@ -253,16 +253,12 @@ contract DPG {
     }
 
     // MARK: - Getters
-    function getPeriodStart() public view returns (uint) {
-        return getAccountingPeriod().start;
-    }
-
     function getReusableBottlePurchases() public view returns (uint) {
         return getAccountingPeriod().reusableBottlePurchases;
     }
 
-    function getReusableBottlePurchasesByConsumer(address _consumer) public view returns (uint) {
-        return getAccountingPeriod().consumers[_consumer].reusableBottlePurchases;
+    function getReusableBottlePurchasesByConsumer(address consumer) public view returns (uint) {
+        return getAccountingPeriod().consumers[consumer].reusableBottlePurchases;
     }
 
     function getThrownAwayOneWayBottles() public view returns (uint) {
@@ -271,11 +267,21 @@ contract DPG {
 
     // MARK: - Private Methods
     function setNextPeriod() internal {
-        Period storage period = getAccountingPeriod();
-        require(now >= SafeMath.add(period.start, PERIOD_LENGTH));
+        uint periodEnd = SafeMath.add(currentPeriodStart, PERIOD_LENGTH);
+        require(now >= periodEnd);
 
+        Period storage period = getAccountingPeriod();
         reusableBottlePurchasesInPeriod.push(period.reusableBottlePurchases);
         thrownAwayOneWayBottlesInPeriod.push(period.thrownAwayOneWayBottles);
+
+        uint passedPeriods = SafeMath.div(SafeMath.sub(now, periodEnd), PERIOD_LENGTH) + 1;
+
+        if (passedPeriods > 1) {
+            for (uint i = 1; i < passedPeriods; i++) {
+                reusableBottlePurchasesInPeriod.push(0);
+                thrownAwayOneWayBottlesInPeriod.push(0);
+            }
+        }
 
         if (currentPeriodName == PeriodName.A) {
             currentPeriodName = PeriodName.B;
@@ -283,12 +289,11 @@ contract DPG {
             currentPeriodName = PeriodName.A;
         }
 
-        currentPeriodIndex = SafeMath.add(currentPeriodIndex, 1);
+        currentPeriodIndex = SafeMath.add(currentPeriodIndex, passedPeriods);
+        currentPeriodStart = periodEnd;
 
-        if (currentPeriodIndex > 2) {
-            period = getAccountingPeriod();
-            resetPeriod(period);
-        }
+        period = getAccountingPeriod();
+        resetPeriod(period);
     }
 
     function getAccountingPeriod() internal view returns (Period storage) {
@@ -300,14 +305,21 @@ contract DPG {
     }
 
     function resetPeriod(Period period) internal view {
+        if (currentPeriodIndex <= 2) {
+            return;
+        }
+
         period.index = currentPeriodIndex;
-        period.start = now;
         period.reusableBottlePurchases = 0;
         period.thrownAwayOneWayBottles = 0;
     }
 
     function resetConsumer(Consumer consumer) internal {
-        if (consumer.lastResetPeriodIndex > 0 && !consumer.hasClaimedReward && consumer.reusableBottlePurchases > 0) {
+        if (currentPeriodIndex <= 2) {
+            return;
+        }
+
+        if (!consumer.hasClaimedReward && consumer.reusableBottlePurchases > 0) {
             unclaimedRewards = SafeMath.add(unclaimedRewards, getRewardAmount(consumer.reusableBottlePurchases, consumer.lastResetPeriodIndex));
         }
 

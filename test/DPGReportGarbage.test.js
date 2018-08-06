@@ -81,7 +81,7 @@ contract("DPG Report Garbage Test", async (accounts) => {
 
     it("should add collector A as an approved garbage collector because caller is contract owner", async() => {
         await contract.addGarbageCollector(collectorA, {from: owner});
-        assert(await contract.isApprovedGarbageCollector(collectorA));
+        assert.isTrue(await contract.isApprovedGarbageCollector(collectorA));
     });
 
     it("should fail to add collector B as an approved garbage collector because collector's address (0x0) equals that of zero address", async() => {

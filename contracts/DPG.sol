@@ -96,9 +96,13 @@ contract DPG {
     }
 
     // MARK: - Public Methods
+    function () external payable {
+        // fallback may only rely on 2300 gas (in worst case, i.e. contract-to-contract send) so that following accouning scheme might not be performed
+        agencyFund = agencyFund + msg.value;
+    }
+
     // MARK: Deposit/Refund
     // leave deposit upon buying newly introduced bottle (i.e. bottle put into circulation through purchase)
-    // TODO: use fallback function instead?
     // => tested
     function deposit(uint bottleCount) public payable {
         require(bottleCount > 0);
@@ -147,24 +151,27 @@ contract DPG {
     }
 
     // MARK: Reward/Donation
+    // => tested
     function claimReward() public periodDependent {
         require(currentPeriodIndex > 1);
 
         Period storage period = getRewardPeriod();
         Consumer storage consumer = period.consumers[msg.sender];
 
-        if (consumer.lastResetPeriodIndex < currentPeriodIndex) {
-            resetConsumer(consumer);
-        } else {
-            require(!consumer.hasClaimedReward && consumer.reusableBottlePurchases > 0);
+        if (consumer.lastResetPeriodIndex < currentPeriodIndex - 1) {
+            revert();
 
-            uint amount = getRewardAmount(consumer.reusableBottlePurchases, period.index);
-            require(amount > 0);
-
-            consumer.hasClaimedReward = true;
-            agencyFund = agencyFund - amount;
-            msg.sender.transfer(amount);
+            // resetConsumer(consumer);
+            // return;
         }
+ 
+        require(!consumer.hasClaimedReward);
+
+        uint amount = getRewardAmount(consumer.reusableBottlePurchases, period.index);
+        require(amount > 0);
+
+        consumer.hasClaimedReward = true;
+        msg.sender.transfer(amount);
     }
 
     // => tested
@@ -296,6 +303,11 @@ contract DPG {
         return agencies[_address].lastClaimPeriodIndex == rewardPeriod.index;
     }
 
+    function hasClaimedReward(address _address) public view returns (bool) {
+        Period storage rewardPeriod = getRewardPeriod();
+        return rewardPeriod.consumers[_address].hasClaimedReward;
+    }
+
     // MARK: - Private Methods
     function setNextPeriod() internal {
         uint periodEnd = SafeMath.add(currentPeriodStart, PERIOD_LENGTH);
@@ -336,21 +348,13 @@ contract DPG {
     }
 
     function resetPeriod(Period storage period) internal {
-        if (currentPeriodIndex <= 2) {
-            return;
-        }
-
         period.index = currentPeriodIndex;
         period.reusableBottlePurchases = 0;
         period.thrownAwayOneWayBottles = 0;
     }
 
     function resetConsumer(Consumer storage consumer) internal {
-        if (currentPeriodIndex <= 2) {
-            return;
-        }
-
-        if (!consumer.hasClaimedReward && consumer.reusableBottlePurchases > 0) {
+        if (!consumer.hasClaimedReward && consumer.lastResetPeriodIndex > 0) {
             unclaimedRewards = SafeMath.add(unclaimedRewards, getRewardAmount(consumer.reusableBottlePurchases, consumer.lastResetPeriodIndex));
         }
 
@@ -359,18 +363,25 @@ contract DPG {
         consumer.lastResetPeriodIndex = currentPeriodIndex;
     }
 
-    function getRewardAmount(uint reusableBottlePurchases, uint periodIndex) internal view returns (uint amount) {
-        uint totalReusableBottlePurchases = reusableBottlePurchasesInPeriod[periodIndex];
-        uint thrownAwayOneWayBottles = thrownAwayOneWayBottlesInPeriod[periodIndex];
+    function getRewardAmount(uint reusableBottlePurchases, uint periodIndex) internal view returns (uint) {
+        uint totalReusableBottlePurchases = reusableBottlePurchasesInPeriod[periodIndex-1];
+        uint thrownAwayOneWayBottles = thrownAwayOneWayBottlesInPeriod[periodIndex-1];
+
+        if (reusableBottlePurchases == 0 || thrownAwayOneWayBottles == 0) {
+            return 0;
+        }
 
         // userShare * ((thrownAwayOneWayBottles * DEPOSIT_VALUE) / 2)
-        amount = SafeMath.mul(SafeMath.div(reusableBottlePurchases, totalReusableBottlePurchases), SafeMath.div(SafeMath.mul(thrownAwayOneWayBottles, DEPOSIT_VALUE), 2));
+        return SafeMath.mul(SafeMath.div(reusableBottlePurchases, totalReusableBottlePurchases), SafeMath.div(SafeMath.mul(thrownAwayOneWayBottles, DEPOSIT_VALUE), 2));
     }
 
-    
-    function getDonationAmount() internal view returns (uint amount) {
+    function getDonationAmount() internal view returns (uint) {
+        if (approvedAgencies == 0) {
+            return 0;
+        }
+
         // agencyFund / approvedAgencies
-        amount = SafeMath.div(agencyFund, approvedAgencies);
+        return SafeMath.div(agencyFund, approvedAgencies);
     }
 
 }

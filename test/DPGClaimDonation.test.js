@@ -65,7 +65,7 @@ contract("DPG Claim Donation Test", async (accounts) => {
 
     it("should add agency A as an approved environmental agency because caller is contract owner", async() => {
         await contract.addEnvironmentalAgency(agencyA, {from: owner});
-        assert(await contract.isApprovedEnvironmentalAgency(agencyA));
+        assert.isTrue(await contract.isApprovedEnvironmentalAgency(agencyA));
     });
 
     it("should fail to add agency B as an approved environmental agency because agency's address (0x0) equals that of zero address", async() => {
@@ -151,7 +151,7 @@ contract("DPG Claim Donation Test", async (accounts) => {
         console.log("balance after: ", agencyBalanceAfter.toNumber());
     
         // assert.equal(agencyBalanceBefore - claimGasCost + (DEPOSIT_VALUE * firstReportPeriod1 * 0.5), agencyBalanceAfter);
-        assert(agencyBalanceAfter > agencyBalanceBefore);
+        assert.isAbove(agencyBalanceAfter.toNumber(), agencyBalanceBefore.toNumber());
     });
 
     it("should not send the donation to agency A because agency A already claimed the donation in this period (index: 2)", async() => {
@@ -166,7 +166,7 @@ contract("DPG Claim Donation Test", async (accounts) => {
 
     const firstReportPeriod2 = 2;
 
-    it("should send the donation (0.5 ETH = 50% of agency funds) to agency A because the funds were emptied and agency C is added and another report of 2 thrown away bottles is sent", async() => {
+    it("should send the donation (0.5 ETH = 50% of agency funds) to agency C because the funds were emptied and agency C is added and another report of 2 thrown away bottles is sent in the next period (index: 3)", async() => {
         await contract.addEnvironmentalAgency(agencyC, {from: owner});
 
         await timeTravel(86400 * 29);
@@ -186,7 +186,7 @@ contract("DPG Claim Donation Test", async (accounts) => {
         console.log("balance after: ", agencyBalanceAfter.toNumber());
         
         // assert.equal(agencyBalanceBefore - claimGasCost + (DEPOSIT_VALUE * firstReportPeriod2 * 0.5 / 2), agencyBalanceAfter);
-        assert(agencyBalanceAfter > agencyBalanceBefore);
+        assert.isAbove(agencyBalanceAfter.toNumber(), agencyBalanceBefore.toNumber());
     });
 
 });

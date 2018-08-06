@@ -109,7 +109,7 @@ contract("DPG Report Garbage Test", async (accounts) => {
 
     it("should accept and set reported count of thrown away bottles as total because bottle count (1) is greater than or equal to one (1) and collector A was approved as a garbage collector previously", async() => {
         await contract.reportThrownAwayOneWayBottles(firstReportPeriod1, {from: collectorA});
-
+        
         assert.equal(await contract.getThrownAwayOneWayBottles(), firstReportPeriod1);
     });
 
@@ -121,6 +121,7 @@ contract("DPG Report Garbage Test", async (accounts) => {
 
     it("should increase reported count of thrown away bottles to 14 because another report of 13 bottles is sent by collector A", async() => {
         await contract.reportThrownAwayOneWayBottles(secondReportPeriod1, {from: collectorA});
+
         assert.equal(await contract.getThrownAwayOneWayBottles(), firstReportPeriod1 + secondReportPeriod1);
     });
 

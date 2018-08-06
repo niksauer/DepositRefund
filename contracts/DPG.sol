@@ -68,7 +68,9 @@ contract DPG {
 
     // MARK: - Modifier
     modifier onlyOwner() {
-        if (msg.sender == owner) _;
+        require(msg.sender == owner);
+        
+        _;
     }
 
     modifier periodDependent() {
@@ -89,6 +91,7 @@ contract DPG {
         currentPeriodStart = now;
         currentPeriodName = PeriodName.A;
         periodA.index = currentPeriodIndex;
+        periodB.index = currentPeriodIndex + 1;
         unclaimedRewards = 0;
     }
 
@@ -170,7 +173,7 @@ contract DPG {
 
         EnvironmentalAgency storage agency = agencies[msg.sender];
         require(agency.isApproved);
-        
+
         require(agency.joined < SafeMath.sub(now, PERIOD_LENGTH));
 
         Period memory period = getRewardPeriod();
@@ -179,8 +182,8 @@ contract DPG {
         uint amount = getDonationAmount();
         require(amount > 0);
         
-        agency.lastClaimPeriodIndex = period.index;
         agencyFund = agencyFund - amount;
+        agency.lastClaimPeriodIndex = period.index;
         msg.sender.transfer(amount);
     }
 
@@ -332,7 +335,7 @@ contract DPG {
         return currentPeriodName == PeriodName.A ? periodB : periodA;
     }
 
-    function resetPeriod(Period period) internal view {
+    function resetPeriod(Period storage period) internal {
         if (currentPeriodIndex <= 2) {
             return;
         }
@@ -342,7 +345,7 @@ contract DPG {
         period.thrownAwayOneWayBottles = 0;
     }
 
-    function resetConsumer(Consumer consumer) internal {
+    function resetConsumer(Consumer storage consumer) internal {
         if (currentPeriodIndex <= 2) {
             return;
         }
@@ -364,9 +367,10 @@ contract DPG {
         amount = SafeMath.mul(SafeMath.div(reusableBottlePurchases, totalReusableBottlePurchases), SafeMath.div(SafeMath.mul(thrownAwayOneWayBottles, DEPOSIT_VALUE), 2));
     }
 
+    
     function getDonationAmount() internal view returns (uint amount) {
-        // agencyShare * agencyFund
-        amount = SafeMath.mul(SafeMath.div(1, approvedAgencies), agencyFund);
+        // agencyFund / approvedAgencies
+        amount = SafeMath.div(agencyFund, approvedAgencies);
     }
 
 }

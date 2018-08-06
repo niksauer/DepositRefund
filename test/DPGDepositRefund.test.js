@@ -3,9 +3,10 @@ const DPG = artifacts.require("DPG");
 const DEPOSIT_VALUE = web3.toWei(1, "ether");
 
 
-contract("DPG Deposit/Refund Test", async (accounts) => {
+contract("DPG Deposit Refund Test", async (accounts) => {
     let contract;
-    const consumerA = accounts[0];
+    const owner = accounts[0];
+    const consumerA = accounts[1];
 
     // hooks
     beforeEach("redeploy contract for each test", async() => {
@@ -70,42 +71,50 @@ contract("DPG Deposit/Refund Test", async (accounts) => {
         throw new Error("Did refund deposits even though bottle count (0) is not greater than or equal to one (1)");
     });
 
-    // it("should refund deposits because bottle count (1) is greater than or equal to one (1)", async() => {
-    //     const bottles = 1;
-    //     const value = bottles * DEPOSIT_VALUE;
+    it("should refund deposits because bottle count (1) is greater than or equal to one (1)", async() => {
+        const bottles = 1;
+        const value = bottles * DEPOSIT_VALUE;
 
-    //     const consumerBalanceBefore = await web3.eth.getBalance(consumerA);
+        const consumerBalanceBefore = await web3.eth.getBalance(consumerA);
+        console.log("balance before: ", consumerBalanceBefore.toNumber());
 
-    //     const depositTXInfo = await contract.deposit(bottles, {value: value});
-    //     const depositTX = await web3.eth.getTransaction(depositTXInfo.tx);
-    //     const depositGasCost = depositTX.gasPrice.mul(depositTXInfo.receipt.gasUsed);
+        const depositTXInfo = await contract.deposit(bottles, {value: value});
+        const depositTX = await web3.eth.getTransaction(depositTXInfo.tx);
+        const depositGasCost = depositTX.gasPrice.mul(depositTXInfo.receipt.gasUsed);
+        console.log("deposit gas cost: ", depositGasCost.toNumber());
 
-    //     const refundTXInfo = await contract.refund(bottles);
-    //     const refundTX = await web3.eth.getTransaction(refundTXInfo.tx);
-    //     const refundGasCost = refundTX.gasPrice.mul(refundTXInfo.receipt.gasUsed);
+        const refundTXInfo = await contract.refund(bottles);
+        const refundTX = await web3.eth.getTransaction(refundTXInfo.tx);
+        const refundGasCost = refundTX.gasPrice.mul(refundTXInfo.receipt.gasUsed);
+        console.log("refund gas cost: ", refundGasCost.toNumber());
 
-    //     const consumerBalanceAfter = await web3.eth.getBalance(consumerA);
+        const consumerBalanceAfter = await web3.eth.getBalance(consumerA);
+        console.log("balancer after: ", consumerBalanceAfter.toNumber());
 
-    //     assert.equal(consumerBalanceBefore - depositGasCost - refundGasCost, consumerBalanceAfter);
-    // });
+        // assert.equal(consumerBalanceBefore - depositGasCost - refundGasCost, consumerBalanceAfter);
+    });
 
-    // it("should refund deposits because bottle count (2) is greater than or equal to one (1)", async() => {
-    //     const bottles = 2;
-    //     const value = bottles * DEPOSIT_VALUE;
+    it("should refund deposits because bottle count (2) is greater than or equal to one (1)", async() => {
+        const bottles = 2;
+        const value = bottles * DEPOSIT_VALUE;
 
-    //     const consumerBalanceBefore = await web3.eth.getBalance(consumerA);
+        const consumerBalanceBefore = await web3.eth.getBalance(consumerA);
+        console.log("balance before: ", consumerBalanceBefore.toNumber());
 
-    //     const depositTXInfo = await contract.deposit(bottles, {value: value});
-    //     const depositTX = await web3.eth.getTransaction(depositTXInfo.tx);
-    //     const depositGasCost = depositTX.gasPrice.mul(depositTXInfo.receipt.gasUsed);
+        const depositTXInfo = await contract.deposit(bottles, {value: value});
+        const depositTX = await web3.eth.getTransaction(depositTXInfo.tx);
+        const depositGasCost = depositTX.gasPrice.mul(depositTXInfo.receipt.gasUsed);
+        console.log("deposit gas cost: ", depositGasCost.toNumber());
 
-    //     const refundTXInfo = await contract.refund(bottles);
-    //     const refundTX = await web3.eth.getTransaction(refundTXInfo.tx);
-    //     const refundGasCost = refundTX.gasPrice.mul(refundTXInfo.receipt.gasUsed);
+        const refundTXInfo = await contract.refund(bottles);
+        const refundTX = await web3.eth.getTransaction(refundTXInfo.tx);
+        const refundGasCost = refundTX.gasPrice.mul(refundTXInfo.receipt.gasUsed);
+        console.log("refund gas cost: ", refundGasCost.toNumber());
 
-    //     const consumerBalanceAfter = await web3.eth.getBalance(consumerA);
+        const consumerBalanceAfter = await web3.eth.getBalance(consumerA);
+        console.log("balancer after: ", consumerBalanceAfter.toNumber());
 
-    //     assert.equal(consumerBalanceBefore - depositGasCost - refundGasCost, consumerBalanceAfter);
-    // });
+        // assert.equal(consumerBalanceBefore - depositGasCost - refundGasCost, consumerBalanceAfter);
+    });
 
 });

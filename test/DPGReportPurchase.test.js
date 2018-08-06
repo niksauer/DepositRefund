@@ -75,6 +75,7 @@ contract("DPG Report Purchase Test", async (accounts) => {
 
     it("should accept and set reported count of purchased reusable bottles for consumer A because bottle count (100) is greater than or equal to one (1) and consumer's addres does not equal zero address", async() => {
         await contract.reportReusableBottlePurchase(consumerA, firstPurchaseConsumerAPeriod1, {from: reporter});
+
         assert.equal(await contract.getReusableBottlePurchasesByConsumer(consumerA), firstPurchaseConsumerAPeriod1);
     });
 
@@ -86,6 +87,7 @@ contract("DPG Report Purchase Test", async (accounts) => {
 
     it("should increase reported count of purchased reusable bottles for consumer A to 150 because another report of 50 bottles for consumer A is sent", async() => {
         await contract.reportReusableBottlePurchase(consumerA, secondPurchaseConsumerAPeriod1, {from: reporter});
+
         assert.equal(await contract.getReusableBottlePurchasesByConsumer(consumerA), firstPurchaseConsumerAPeriod1 + secondPurchaseConsumerAPeriod1);
     });
 
@@ -97,6 +99,7 @@ contract("DPG Report Purchase Test", async (accounts) => {
 
     it("should set reported count of purchased reusable bottles for consumer B to 10 because another report of 10 bottles for consumer B is sent", async() => {
         await contract.reportReusableBottlePurchase(consumerB, firstPurchaseConsumerBPeriod1, {from: reporter});
+
         assert.equal(await contract.getReusableBottlePurchasesByConsumer(consumerB), firstPurchaseConsumerBPeriod1);
     });
 
@@ -115,9 +118,8 @@ contract("DPG Report Purchase Test", async (accounts) => {
         await mineBlock();
         
         await contract.reportReusableBottlePurchase(consumerA, thirdPurchaseCustomerAPeriod1, {from: reporter});
-        const currentPeriodIndex = await contract.currentPeriodIndex();
 
-        assert.equal(currentPeriodIndex, 1);
+        assert.equal(await contract.currentPeriodIndex(), 1);
     });
 
     it("should also increase reported count of purchased bottles for consumer A to 170 because another report of 20 bottles was accepted previously and period was not advanced far enough", async() => {
@@ -125,10 +127,9 @@ contract("DPG Report Purchase Test", async (accounts) => {
     });
 
     it("should also increase total purchases to 180 because another report of 20 bottles was accepted previously and period was not advaced far enough", async() => {
-        const reusableBottlePurchases = await contract.getReusableBottlePurchases();
         const expectedPurchases = firstPurchaseConsumerAPeriod1 + secondPurchaseConsumerAPeriod1 + firstPurchaseConsumerBPeriod1 + thirdPurchaseCustomerAPeriod1;
         
-        assert.equal(reusableBottlePurchases, expectedPurchases);
+        assert.equal(await contract.getReusableBottlePurchases(), expectedPurchases);
     });
 
     const firstPurchaseConsumerBPeriod2 = 30;
@@ -138,9 +139,8 @@ contract("DPG Report Purchase Test", async (accounts) => {
         await mineBlock();
         
         await contract.reportReusableBottlePurchase(consumerB, firstPurchaseConsumerBPeriod2, {from: reporter});
-        const currentPeriodIndex = await contract.currentPeriodIndex();
 
-        assert.equal(currentPeriodIndex, 2);
+        assert.equal(await contract.currentPeriodIndex(), 2);
     });
 
     it("should also set reported count of purchased reusable bottles for consumer B to 30 because period was advanced", async() => {       
@@ -166,9 +166,8 @@ contract("DPG Report Purchase Test", async (accounts) => {
         await mineBlock();
         
         await contract.reportReusableBottlePurchase(consumerA, firstPurchaseConsumerAPeriod3, {from: reporter});
-        const currentPeriodIndex = await contract.currentPeriodIndex();
 
-        assert.equal(currentPeriodIndex, 3);
+        assert.equal(await contract.currentPeriodIndex(), 3);
     });
 
     it("should also set reported count of purchased resuable bottles for consumer A to 8 because period was advanced", async() => {

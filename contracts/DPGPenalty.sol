@@ -1,10 +1,12 @@
 pragma solidity 0.4.24;
 
+import "../node_modules/openzeppelin-solidity/contracts/math/SafeMath.sol";
 import "./DPG.sol";
 import "./DPGToken.sol";
 
 
 contract DPGPenalty is DPG {
+    using SafeMath for uint;
 
     // MARK: - Public Properties
     mapping(address => uint) internal thrownAwayOneWayBottlesByConsumer;
@@ -29,7 +31,7 @@ contract DPGPenalty is DPG {
 
             if (!token.exists(bottleId)) {
                 token.mint(_address, bottleId);
-                newBottles = newBottles + 1;
+                newBottles.add(1);
             } else {
                 address owner = token.ownerOf(bottleId);
                 token.safeTransferFrom(owner, _address, bottleId);
@@ -51,9 +53,9 @@ contract DPGPenalty is DPG {
             token.burn(owner, bottleId);
 
             if (owner == _address) {
-                selfReturnedOneWayBottlesByConsumer[_address] = selfReturnedOneWayBottlesByConsumer[_address] + 1;
+                selfReturnedOneWayBottlesByConsumer[_address] = selfReturnedOneWayBottlesByConsumer[_address].add(1);
             } else {
-                foreignReturnedOneWayBottlesByConsumer[owner] = foreignReturnedOneWayBottlesByConsumer[owner] + 1;
+                foreignReturnedOneWayBottlesByConsumer[owner] = foreignReturnedOneWayBottlesByConsumer[owner].add(1);
             }
         }
     }
@@ -70,15 +72,15 @@ contract DPGPenalty is DPG {
 
             if (!token.exists(bottleId)) {
                 // bottle must be recognized as one way bottle in order to increment counter
-                // bottleCount = bottleCount + 1;
+                // bottleCount = bottleCount.add(1);
                 continue;
             }
 
-            bottleCount = bottleCount + 1;
+            bottleCount = bottleCount.add(1);
 
             address owner = token.ownerOf(bottleId);
             token.burn(owner, bottleId);
-            thrownAwayOneWayBottlesByConsumer[owner] = thrownAwayOneWayBottlesByConsumer[owner] + 1;
+            thrownAwayOneWayBottlesByConsumer[owner] = thrownAwayOneWayBottlesByConsumer[owner].add(1);
         }
 
         _reportThrownAwayOneWayBottles(bottleCount);

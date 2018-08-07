@@ -64,14 +64,14 @@ contract DPG is Ownable {
         currentPeriodStart = now;
         currentPeriodName = PeriodName.A;
         periodA.index = currentPeriodIndex;
-        periodB.index = currentPeriodIndex + 1;
+        periodB.index = currentPeriodIndex.add(1);
         unclaimedRewards = 0;
     }
 
     // MARK: - Public Methods
     function () external payable {
         // fallback may only rely on 2300 gas (in worst case, i.e. contract-to-contract send) so that following accouning scheme might not be performed
-        agencyFund = agencyFund + msg.value;
+        agencyFund = agencyFund.add(msg.value);
     }
 
     // MARK: Reporting
@@ -99,7 +99,7 @@ contract DPG is Ownable {
         Period storage period = getRewardPeriod();
         Consumer storage consumer = period.consumers[msg.sender];
 
-        if (consumer.lastResetPeriodIndex < currentPeriodIndex - 1) {
+        if (consumer.lastResetPeriodIndex < currentPeriodIndex.sub(1)) {
             revert();
 
             // resetConsumer(consumer);
@@ -129,7 +129,7 @@ contract DPG is Ownable {
         uint amount = getDonationAmount();
         require(amount > 0);
         
-        agencyFund = agencyFund - amount;
+        agencyFund = agencyFund.sub(amount);
         lastClaimByAgency[msg.sender] = period.index;
         msg.sender.transfer(amount);
     }
@@ -225,8 +225,8 @@ contract DPG is Ownable {
     }
 
     function getRewardAmount(uint reusableBottlePurchases, uint periodIndex) internal view returns (uint) {
-        uint totalReusableBottlePurchases = reusableBottlePurchasesInPeriod[periodIndex-1];
-        uint thrownAwayOneWayBottles = thrownAwayOneWayBottlesInPeriod[periodIndex-1];
+        uint totalReusableBottlePurchases = reusableBottlePurchasesInPeriod[periodIndex.sub(1)];
+        uint thrownAwayOneWayBottles = thrownAwayOneWayBottlesInPeriod[periodIndex.sub(1)];
 
         if (reusableBottlePurchases == 0 || thrownAwayOneWayBottles == 0) {
             return 0;

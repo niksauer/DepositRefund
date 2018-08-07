@@ -1,4 +1,4 @@
-const DPG = artifacts.require("DPG");
+const DPGBasic = artifacts.require("DPGBasic");
 const DPGActorManager = artifacts.require("DPGActorManager");
 
 const timeTravel = function (seconds) {
@@ -48,7 +48,7 @@ contract("DPG Report Garbage Test", async (accounts) => {
 
     // hooks
     before("deploy contract with actor manager dependency", async() => {
-        mainContract = await DPG.new(actorManagerContract.address);
+        mainContract = await DPGBasic.new(actorManagerContract.address);
     });
 
     // function reportThrownAwayBottles(uint bottleCount) public periodDependent

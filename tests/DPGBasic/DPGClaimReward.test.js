@@ -1,4 +1,4 @@
-const DPG = artifacts.require("DPG");
+const DPGBasic = artifacts.require("DPGBasic");
 const DPGActorManager = artifacts.require("DPGActorManager");
 
 const timeTravel = function (seconds) {
@@ -51,7 +51,7 @@ contract("DPG Claim Reward Test", async (accounts) => {
     // hooks
     beforeEach("redeploy contract, setup deposits for 10 bottles and add garbage collector", async() => {
         actorManagerContract = await DPGActorManager.new();
-        mainContract = await DPG.new(actorManagerContract.address);
+        mainContract = await DPGBasic.new(actorManagerContract.address);
 
         const soldBottles = 10;
 

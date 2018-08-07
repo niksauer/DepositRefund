@@ -1,10 +1,11 @@
 pragma solidity 0.4.24;
 
-import "./interfaces/IDPGActorManager.sol";
 import "../node_modules/openzeppelin-solidity/contracts/math/SafeMath.sol";
+import "./interfaces/IDPGActorManager.sol";
+import "./interfaces/Ownable.sol";
 
 
-contract DPGActorManager is IDPGActorManager {
+contract DPGActorManager is IDPGActorManager, Ownable {
     using SafeMath for uint;
 
     // MARK: - Types
@@ -21,24 +22,14 @@ contract DPGActorManager is IDPGActorManager {
     }
 
     // MARK: - Private Properties
-    address internal owner;
-
     uint internal approvedAgencies;
     mapping(address => EnvironmentalAgency) internal agencies;
 
     mapping(address => GarbageCollector) internal collectors;
 
-    // MARK: - Modifier
-    modifier onlyOwner() {
-        require(msg.sender == owner);
-        
-        _;
-    }
-
     // MARK: - Initialization
-    constructor() public {
-        owner = msg.sender;
-    }
+    // solhint-disable-next-line no-empty-blocks
+    constructor() public Ownable(msg.sender) {}
 
     // MARK: - IDPGActorManager
     function getCountOfApprovedAgencies() external view returns (uint) {

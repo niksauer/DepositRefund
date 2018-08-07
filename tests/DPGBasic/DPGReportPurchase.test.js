@@ -1,4 +1,4 @@
-const DPG = artifacts.require("DPG");
+const DPGBasic = artifacts.require("DPGBasic");
 const DPGActorManager = artifacts.require("DPGActorManager");
 
 const timeTravel = function (seconds) {
@@ -45,7 +45,7 @@ contract("DPG Report Purchase Test", async (accounts) => {
     // hooks
     before("deploy contract with actor manager dependency", async() => {
         const actorManagerContract = await DPGActorManager.deployed();
-        mainContract = await DPG.new(actorManagerContract.address);
+        mainContract = await DPGBasic.new(actorManagerContract.address);
     });
 
     // currentPeriodIndex

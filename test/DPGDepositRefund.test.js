@@ -1,4 +1,4 @@
-const DPG = artifacts.require("DPG");
+const DPGBasic = artifacts.require("DPGBasic");
 const DPGActorManager = artifacts.require("DPGActorManager");
 
 const DEPOSIT_VALUE = web3.toWei(1, "ether");
@@ -12,7 +12,7 @@ contract("DPG Deposit Refund Test", async (accounts) => {
     // hooks
     beforeEach("redeploy contract with new actor manager dependency for each test", async() => {
         const actorManagerContract = await DPGActorManager.new();
-        mainContract = await DPG.new(actorManagerContract.address);
+        mainContract = await DPGBasic.new(actorManagerContract.address);
     });
 
     // function deposit(uint bottleCount) public payable

@@ -1,4 +1,5 @@
 const DPG = artifacts.require("DPG");
+const DPGActorManager = artifacts.require("DPGActorManager");
 
 const timeTravel = function (seconds) {
     return new Promise((resolve, reject) => {
@@ -37,7 +38,8 @@ const DEPOSIT_VALUE = web3.toWei(1, "ether");
 
 
 contract("DPG Claim Reward Test", async (accounts) => {
-    let contract;
+    let mainContract;
+    let actorManagerContract;
 
     const owner = accounts[0];
     const collectorA = accounts[1];
@@ -48,18 +50,19 @@ contract("DPG Claim Reward Test", async (accounts) => {
 
     // hooks
     beforeEach("redeploy contract, setup deposits for 10 bottles and add garbage collector", async() => {
-        contract = await DPG.new();
+        actorManagerContract = await DPGActorManager.new();
+        mainContract = await DPG.new(actorManagerContract.address);
 
         const soldBottles = 10;
 
-        await contract.deposit(soldBottles, {from: retail, value: soldBottles * DEPOSIT_VALUE});
-        await contract.addGarbageCollector(collectorA, {from: owner});
+        await mainContract.deposit(soldBottles, {from: retail, value: soldBottles * DEPOSIT_VALUE});
+        await actorManagerContract.addGarbageCollector(collectorA, {from: owner});
     });
 
     // function claimReward() public periodDependent
     it("should fail to send the reward to consumer A because it's the first period (index: 1)", async() => {
         try {
-            await contract.claimReward({from: consumerA});
+            await mainContract.claimReward({from: consumerA});
         } catch (error) {
             return true;
         }
@@ -72,7 +75,7 @@ contract("DPG Claim Reward Test", async (accounts) => {
         await mineBlock();
 
         try {
-            await contract.claimReward({from: consumerA});
+            await mainContract.claimReward({from: consumerA});
         } catch (error) {
             return true;
         }
@@ -83,13 +86,13 @@ contract("DPG Claim Reward Test", async (accounts) => {
     const firstReportPeriod1ConsumerA = 5;
 
     it("should fail to send the reward to consumer A (even though consumer A purchased reusable bottles (3) in the past period (index: 1)) because the amount is not greater than zero (0) as no report of thrown away bottles was received in the past period (index: 1)", async() => {
-        await contract.reportReusableBottlePurchase(consumerA, firstReportPeriod1ConsumerA, {from: retail});
+        await mainContract.reportReusableBottlePurchase(consumerA, firstReportPeriod1ConsumerA, {from: retail});
 
         await timeTravel(86400 * 28);
         await mineBlock();
 
         try {
-            await contract.claimReward({from: consumerA});
+            await mainContract.claimReward({from: consumerA});
         } catch (error) {
             return true;
         }
@@ -100,8 +103,8 @@ contract("DPG Claim Reward Test", async (accounts) => {
     const firstReportPeriod1ThrownAways = 2;
 
     it("should send the reward (1 ETH = 100% of user funds) to consumer A because it is not the first period and a report of 2 thrown away bottles is sent for the past period (index: 1) and consumer A was reported to have purchased 3 reusable bottles in the past period (index: 1) which represents 100% of the total reusable bottle sales", async() => {
-        await contract.reportReusableBottlePurchase(consumerA, firstReportPeriod1ConsumerA, {from: retail});
-        await contract.reportThrownAwayOneWayBottles(firstReportPeriod1ThrownAways, {from: collectorA});
+        await mainContract.reportReusableBottlePurchase(consumerA, firstReportPeriod1ConsumerA, {from: retail});
+        await mainContract.reportThrownAwayOneWayBottles(firstReportPeriod1ThrownAways, {from: collectorA});
 
         await timeTravel(86400 * 28);
         await mineBlock();
@@ -109,7 +112,7 @@ contract("DPG Claim Reward Test", async (accounts) => {
         const consumerBalanceBefore = await web3.eth.getBalance(consumerA);
         console.log("balance before: ", consumerBalanceBefore.toNumber());
 
-        const claimTXInfo = await contract.claimReward({from: consumerA});
+        const claimTXInfo = await mainContract.claimReward({from: consumerA});
         const claimTX = await web3.eth.getTransaction(claimTXInfo.tx);
         const claimGasCost = claimTX.gasPrice.mul(claimTXInfo.receipt.gasUsed);
         console.log("claim gas cost: ", claimGasCost.toNumber());
@@ -122,16 +125,16 @@ contract("DPG Claim Reward Test", async (accounts) => {
     });
 
     it("should fail to send the reward to consumer A because consumer A already claimed the reward for the past period (index: 1)", async() => {
-        await contract.reportReusableBottlePurchase(consumerA, firstReportPeriod1ConsumerA, {from: retail});
-        await contract.reportThrownAwayOneWayBottles(firstReportPeriod1ThrownAways, {from: collectorA});
+        await mainContract.reportReusableBottlePurchase(consumerA, firstReportPeriod1ConsumerA, {from: retail});
+        await mainContract.reportThrownAwayOneWayBottles(firstReportPeriod1ThrownAways, {from: collectorA});
 
         await timeTravel(86400 * 28);
         await mineBlock();
 
-        const claimTXInfo = await contract.claimReward({from: consumerA});
+        const claimTXInfo = await mainContract.claimReward({from: consumerA});
     
         try {
-            await contract.claimReward({from: consumerA});
+            await mainContract.claimReward({from: consumerA});
         } catch (error) {
             return true;
         }
@@ -140,14 +143,14 @@ contract("DPG Claim Reward Test", async (accounts) => {
     });
 
     it("should fail to send the reward to consumer A (even though it is not the first period and a report of 2 thrown away bottles is sent for the first period (index: 1) and consumer A was reported to have purchased 3 reusable bottles in the first reward period (index: 1)) because consumer A missed his chance by waiting two periods (index: 4)", async() => {
-        await contract.reportReusableBottlePurchase(consumerA, firstReportPeriod1ConsumerA, {from: retail});
-        await contract.reportThrownAwayOneWayBottles(firstReportPeriod1ThrownAways, {from: collectorA});
+        await mainContract.reportReusableBottlePurchase(consumerA, firstReportPeriod1ConsumerA, {from: retail});
+        await mainContract.reportThrownAwayOneWayBottles(firstReportPeriod1ThrownAways, {from: collectorA});
 
         await timeTravel(86400 * 84);
         await mineBlock();
     
         try {
-            await contract.claimReward({from: consumerA});
+            await mainContract.claimReward({from: consumerA});
         } catch (error) {
             return true;
         }
@@ -160,21 +163,21 @@ contract("DPG Claim Reward Test", async (accounts) => {
 
     // function reportReusableBottlePurchase(address _address, uint bottleCount) public periodDependent
     it("should also set the amount of non-claimed rewards to 1 ETH (= 50% of throw aways) upon reporting a new reusable bottle purchase for consumer A because he missed his chance to claim the rewards for the first period (index: 1) by waiting one period (index: 3)", async() => {
-        await contract.reportReusableBottlePurchase(consumerA, firstReportPeriod1ConsumerA, {from: retail});
-        await contract.reportThrownAwayOneWayBottles(firstReportPeriod1ThrownAways, {from: collectorA});
+        await mainContract.reportReusableBottlePurchase(consumerA, firstReportPeriod1ConsumerA, {from: retail});
+        await mainContract.reportThrownAwayOneWayBottles(firstReportPeriod1ThrownAways, {from: collectorA});
 
         await timeTravel(86400 * 28);
         await mineBlock();
         
         // necessary to switch pointer back to first period
-        await contract.reportReusableBottlePurchase(consumerA, firstReportPeriod2ConsumerA, {from: retail});
+        await mainContract.reportReusableBottlePurchase(consumerA, firstReportPeriod2ConsumerA, {from: retail});
 
         await timeTravel(86400 * 28);
         await mineBlock();
 
-        await contract.reportReusableBottlePurchase(consumerA, firstReportPeriod3ConsumerA, {from: retail});
+        await mainContract.reportReusableBottlePurchase(consumerA, firstReportPeriod3ConsumerA, {from: retail});
 
-        assert.equal(await contract.unclaimedRewards(), firstReportPeriod1ThrownAways * DEPOSIT_VALUE / 2);
+        assert.equal(await mainContract.unclaimedRewards(), firstReportPeriod1ThrownAways * DEPOSIT_VALUE / 2);
     });
  
 });

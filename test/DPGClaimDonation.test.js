@@ -1,4 +1,5 @@
 const DPG = artifacts.require("DPG");
+const DPGActorManager = artifacts.require("DPGActorManager");
 
 const timeTravel = function (seconds) {
     return new Promise((resolve, reject) => {
@@ -37,7 +38,8 @@ const DEPOSIT_VALUE = web3.toWei(1, "ether");
 
 
 contract("DPG Claim Donation Test", async (accounts) => {
-    const contract = await DPG.deployed();
+    let mainContract;
+    const actorManagerContract = await DPGActorManager.deployed();
     const owner = accounts[0];
     const collectorA = accounts[1];
     const agencyA = accounts[2];
@@ -47,15 +49,17 @@ contract("DPG Claim Donation Test", async (accounts) => {
     
     // hooks
     before("setup garbage collector and deposits for 4 bottles", async() => {
+        mainContract = await DPG.new(actorManagerContract.address);
+
         const bottles = 4;
-        await contract.deposit(bottles, {from: retail, value: bottles * DEPOSIT_VALUE});
-        await contract.addGarbageCollector(collectorA, {from: owner});
+        await mainContract.deposit(bottles, {from: retail, value: bottles * DEPOSIT_VALUE});
+        await actorManagerContract.addGarbageCollector(collectorA, {from: owner});
     });
 
     // function addEnvironmentalAgency(address _address) public onlyOwner
     it("should fail to add agency A as an approved environmental agency because caller is not the contract owner", async() => {
         try {
-            await contract.addEnvironmentalAgency(agencyA, {from: requestor});
+            await actorManagerContract.addEnvironmentalAgency(agencyA, {from: requestor});
         } catch (error) {
             return true;
         }
@@ -64,13 +68,13 @@ contract("DPG Claim Donation Test", async (accounts) => {
     });
 
     it("should add agency A as an approved environmental agency because caller is contract owner", async() => {
-        await contract.addEnvironmentalAgency(agencyA, {from: owner});
-        assert.isTrue(await contract.isApprovedEnvironmentalAgency(agencyA));
+        await actorManagerContract.addEnvironmentalAgency(agencyA, {from: owner});
+        assert.isTrue(await actorManagerContract.isApprovedEnvironmentalAgency(agencyA));
     });
 
     it("should fail to add agency B as an approved environmental agency because agency's address (0x0) equals that of zero address", async() => {
         try {
-            await contract.addEnvironmentalAgency(agencyB, {from: owner});
+            await actorManagerContract.addEnvironmentalAgency(agencyB, {from: owner});
         } catch (error) {
             return true;
         }
@@ -80,7 +84,7 @@ contract("DPG Claim Donation Test", async (accounts) => {
 
     it("should fail to add collector A as an environmental agency because agency A is already approved", async() => {
         try {
-            await contract.addEnvironmentalAgency(agencyA, {from: owner});
+            await actorManagerContract.addEnvironmentalAgency(agencyA, {from: owner});
         } catch (error) {
             return true;
         }
@@ -91,7 +95,7 @@ contract("DPG Claim Donation Test", async (accounts) => {
     // function claimDonation() public periodDependent
     it("should fail to send the donation to agency A (even though it is an approved agency) because its the first period", async() => {
         try {
-            await contract.claimDonation({from: agencyA});
+            await mainContract.claimDonation({from: agencyA});
         } catch (error) {
             return true;
         }
@@ -104,7 +108,7 @@ contract("DPG Claim Donation Test", async (accounts) => {
         await mineBlock();
 
         try {
-            await contract.claimDonation({from: agencyB});
+            await mainContract.claimDonation({from: agencyB});
         } catch (error) {
             return true;
         }
@@ -114,7 +118,7 @@ contract("DPG Claim Donation Test", async (accounts) => {
 
     it("should fail to send the donation to agency A (even though it is an approved agency and its not the first period) because agency A has not participated for at least 4 weeks (28 days)", async() => {
         try {
-            await contract.claimDonation({from: agencyA});
+            await mainContract.claimDonation({from: agencyA});
         } catch (error) {
             return true;
         }
@@ -126,7 +130,7 @@ contract("DPG Claim Donation Test", async (accounts) => {
         await timeTravel(86400 * 1);
         
         try {
-            await contract.claimDonation({from: agencyA});
+            await mainContract.claimDonation({from: agencyA});
         } catch (error) {
             return true;
         }
@@ -137,12 +141,12 @@ contract("DPG Claim Donation Test", async (accounts) => {
     const firstReportPeriod1 = 2;
 
     it("should send the donation (1 ETH = 100% of agency funds) to agency A because agency A is an approved environmental agency and it is not the first period and it has participated for at least 4 weeks (28 days) and a report of 2 thrown away bottles is sent", async() => {
-        await contract.reportThrownAwayOneWayBottles(firstReportPeriod1, {from: collectorA});
+        await mainContract.reportThrownAwayOneWayBottles(firstReportPeriod1, {from: collectorA});
 
         const agencyBalanceBefore = await web3.eth.getBalance(agencyA);
         console.log("balance before: ", agencyBalanceBefore.toNumber());
 
-        const claimTXInfo = await contract.claimDonation({from: agencyA});
+        const claimTXInfo = await mainContract.claimDonation({from: agencyA});
         const claimTX = await web3.eth.getTransaction(claimTXInfo.tx);
         const claimGasCost = claimTX.gasPrice.mul(claimTXInfo.receipt.gasUsed);
         console.log("claim gas cost: ", claimGasCost.toNumber());
@@ -156,7 +160,7 @@ contract("DPG Claim Donation Test", async (accounts) => {
 
     it("should not send the donation to agency A because agency A already claimed the donation in this period (index: 2)", async() => {
         try {
-            await contract.claimDonation({from: agencyA});
+            await mainContract.claimDonation({from: agencyA});
         } catch (error) {
             return true;
         }
@@ -167,17 +171,17 @@ contract("DPG Claim Donation Test", async (accounts) => {
     const firstReportPeriod2 = 2;
 
     it("should send the donation (0.5 ETH = 50% of agency funds) to agency C because the funds were emptied and agency C is added and another report of 2 thrown away bottles is sent in the next period (index: 3)", async() => {
-        await contract.addEnvironmentalAgency(agencyC, {from: owner});
+        await actorManagerContract.addEnvironmentalAgency(agencyC, {from: owner});
 
         await timeTravel(86400 * 29);
         await mineBlock();
 
-        await contract.reportThrownAwayOneWayBottles(firstReportPeriod2, {from: collectorA});
+        await mainContract.reportThrownAwayOneWayBottles(firstReportPeriod2, {from: collectorA});
 
         const agencyBalanceBefore = await web3.eth.getBalance(agencyC);
         console.log("balance before: ", agencyBalanceBefore.toNumber());
 
-        const claimTXInfo = await contract.claimDonation({from: agencyC});
+        const claimTXInfo = await mainContract.claimDonation({from: agencyC});
         const claimTX = await web3.eth.getTransaction(claimTXInfo.tx);
         const claimGasCost = claimTX.gasPrice.mul(claimTXInfo.receipt.gasUsed);
         console.log("claim gas cost: ", claimGasCost.toNumber());

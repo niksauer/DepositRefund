@@ -1,16 +1,18 @@
 const DPG = artifacts.require("DPG");
+const DPGActorManager = artifacts.require("DPGActorManager");
 
 const DEPOSIT_VALUE = web3.toWei(1, "ether");
 
 
 contract("DPG Deposit Refund Test", async (accounts) => {
-    let contract;
+    let mainContract;
     const owner = accounts[0];
     const consumerA = accounts[1];
 
     // hooks
-    beforeEach("redeploy contract for each test", async() => {
-        contract = await DPG.new();
+    beforeEach("redeploy contract with new actor manager dependency for each test", async() => {
+        const actorManagerContract = await DPGActorManager.new();
+        mainContract = await DPG.new(actorManagerContract.address);
     });
 
     // function deposit(uint bottleCount) public payable
@@ -18,7 +20,7 @@ contract("DPG Deposit Refund Test", async (accounts) => {
         const bottles = 0;
 
         try {
-            await contract.deposit(bottles);
+            await mainContract.deposit(bottles);
         } catch (error) {
             return true;
         }
@@ -30,7 +32,7 @@ contract("DPG Deposit Refund Test", async (accounts) => {
         const bottles = 3;
 
         try {
-            await contract.deposit(bottles, {value: 2.99 * DEPOSIT_VALUE});
+            await mainContract.deposit(bottles, {value: 2.99 * DEPOSIT_VALUE});
         } catch (error) {
             return true;
         }
@@ -42,8 +44,8 @@ contract("DPG Deposit Refund Test", async (accounts) => {
         const bottles = 1;
         const value = bottles * DEPOSIT_VALUE;
 
-        await contract.deposit(bottles, {value: value});
-        const contractBalance = await web3.eth.getBalance(contract.address);
+        await mainContract.deposit(bottles, {value: value});
+        const contractBalance = await web3.eth.getBalance(mainContract.address);
 
         assert.equal(value, contractBalance);
     });
@@ -52,8 +54,8 @@ contract("DPG Deposit Refund Test", async (accounts) => {
         const bottles = 2;
         const value = bottles * DEPOSIT_VALUE;
 
-        await contract.deposit(bottles, {value: value});
-        const contractBalance = await web3.eth.getBalance(contract.address);
+        await mainContract.deposit(bottles, {value: value});
+        const contractBalance = await web3.eth.getBalance(mainContract.address);
 
         assert.equal(value, contractBalance);
     });
@@ -63,7 +65,7 @@ contract("DPG Deposit Refund Test", async (accounts) => {
         const bottles = 0;
 
         try {
-            await contract.refund(bottles);
+            await mainContract.refund(bottles);
         } catch (error) {
             return true;
         }
@@ -78,12 +80,12 @@ contract("DPG Deposit Refund Test", async (accounts) => {
         const consumerBalanceBefore = await web3.eth.getBalance(consumerA);
         console.log("balance before: ", consumerBalanceBefore.toNumber());
 
-        const depositTXInfo = await contract.deposit(bottles, {value: value});
+        const depositTXInfo = await mainContract.deposit(bottles, {value: value});
         const depositTX = await web3.eth.getTransaction(depositTXInfo.tx);
         const depositGasCost = depositTX.gasPrice.mul(depositTXInfo.receipt.gasUsed);
         console.log("deposit gas cost: ", depositGasCost.toNumber());
 
-        const refundTXInfo = await contract.refund(bottles);
+        const refundTXInfo = await mainContract.refund(bottles);
         const refundTX = await web3.eth.getTransaction(refundTXInfo.tx);
         const refundGasCost = refundTX.gasPrice.mul(refundTXInfo.receipt.gasUsed);
         console.log("refund gas cost: ", refundGasCost.toNumber());
@@ -101,12 +103,12 @@ contract("DPG Deposit Refund Test", async (accounts) => {
         const consumerBalanceBefore = await web3.eth.getBalance(consumerA);
         console.log("balance before: ", consumerBalanceBefore.toNumber());
 
-        const depositTXInfo = await contract.deposit(bottles, {value: value});
+        const depositTXInfo = await mainContract.deposit(bottles, {value: value});
         const depositTX = await web3.eth.getTransaction(depositTXInfo.tx);
         const depositGasCost = depositTX.gasPrice.mul(depositTXInfo.receipt.gasUsed);
         console.log("deposit gas cost: ", depositGasCost.toNumber());
 
-        const refundTXInfo = await contract.refund(bottles);
+        const refundTXInfo = await mainContract.refund(bottles);
         const refundTX = await web3.eth.getTransaction(refundTXInfo.tx);
         const refundGasCost = refundTX.gasPrice.mul(refundTXInfo.receipt.gasUsed);
         console.log("refund gas cost: ", refundGasCost.toNumber());

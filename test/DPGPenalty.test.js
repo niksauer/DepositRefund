@@ -3,6 +3,7 @@ const DPGActorManager = artifacts.require("DPGActorManager");
 const DPGToken = artifacts.require("DPGToken");
 
 const DEPOSIT_VALUE = web3.toWei(1, "ether");
+const PENALTY_VALUE = web3.toWei(0.2, "ether");
 
 
 contract("DPG Penalty Test", async (accounts) => {
@@ -194,6 +195,106 @@ contract("DPG Penalty Test", async (accounts) => {
 
     it("should also set the number of thrown away bottles to 1 because a report of 1 thrown away one way bottle was accepted previously", async() => {
         assert(await mainContract.getThrownAwayOneWayBottles(), firstThrownAwayIdentifiers.length);
+    });
+
+    const secondPurchaseIdentifiersConsumerA = [10, 11, 12, 13, 14, 15, 16, 17, 18];
+    const secondThrownAwayIdentifiersConsumerA = [10, 11, 12, 13, 14, 15, 16];
+
+    // function getPenaltyByConsumer(address _address) public view returns (uint)
+    it("should return a penalty of 0.2 ETH because consumer A has purchased 8 one way bottles and a throw away report for 6 of those has been sent", async() => {
+        const value = secondPurchaseIdentifiersConsumerA.length * DEPOSIT_VALUE;
+        await mainContract.buyOneWayBottles(secondPurchaseIdentifiersConsumerA, consumerA, {from: retail, value: value});
+        await mainContract.reportThrownAwayOneWayBottles(secondThrownAwayIdentifiersConsumerA, {from: collector});
+        const penalty = await mainContract.getPenaltyByConsumer(consumerA);
+
+        assert.equal(penalty, PENALTY_VALUE);
+    });
+
+    const thirdPurchaseIdentifersConsumerA = [19, 20];
+
+    // function buyOneWayBottles(uint[] identifiers, address _address) public payable
+    it("should fail to accept one way bottle purchase of 2 bottles because deposit value (2 ETH) does not include required penalty (0.4 ETH)", async() => {
+        const value = thirdPurchaseIdentifersConsumerA.length * DEPOSIT_VALUE;
+       
+        try {
+            await mainContract.buyOneWayBottles(thirdPurchaseIdentifersConsumerA, consumerA, {from: retail, value: value});
+        } catch (error) {
+            return true;
+        }
+
+        throw new Error("Did accept one way bottle purchase even though required penalty was not included");
+    });
+
+    it("should accept one way bottle purchase of 2 bottles because deposit value (2.4 ETH) includes required penalty", async() => {
+        const value = thirdPurchaseIdentifersConsumerA.length * (web3.toWei(1.2, "ether"));
+
+        await mainContract.buyOneWayBottles(thirdPurchaseIdentifersConsumerA, consumerA, {from: retail, value: value});
+    });
+
+    // function returnOneWayBottles(uint[] identifiers, address _address) public
+    it("should increase the penalty withdraw amount to 0.2 ETH because consumer A returned one of his bottles personally", async() => {
+        await mainContract.returnOneWayBottles([19], consumerA, {from: retail});
+        const amount = await mainContract.getPenaltyWithdrawAmountByConsumer(consumerA);
+        
+        assert.equal(amount, PENALTY_VALUE);
+    });
+
+    // function withdrawPenalty() public
+    it("should allow consumer A to withdraw his penalty (0.2 ETH)", async() => {
+        const consumerBalanceBefore = await web3.eth.getBalance(consumerA);
+        console.log("balance before: ", consumerBalanceBefore.toNumber());
+
+        const withdrawTxInfo = await mainContract.withdrawPenalty({from: consumerA});
+        const withdrawTx = await web3.eth.getTransaction(withdrawTxInfo.tx);
+        const withdrawGasCost = withdrawTx.gasPrice.mul(withdrawTxInfo.receipt.gasUsed);
+        console.log("withdraw gas cost: ", withdrawGasCost.toNumber());
+
+        const consumerBalanceAfter = await web3.eth.getBalance(consumerA);
+        console.log("balancer after: ", consumerBalanceAfter.toNumber());
+    });
+
+    // function returnOneWayBottles(uint[] identifiers, address _address) public
+    it("should increase the seized penalties to 0.2 ETH because consumer A did not return one of his bottles personally", async() => {
+        await mainContract.returnOneWayBottles([20], consumerB, {from: retail});
+        
+        assert.equal(await mainContract.seizedPenalties(), PENALTY_VALUE);
+    });
+
+    // function withdrawSeizedPenalties() public onlyOwner
+    it("should fail to withdraw the seized penalties because the caller (requestor) is not the contract owner (owner)", async() => {
+        try {
+            await mainContract.withdrawSeizedPenalties({from: requestor});
+        } catch (error) {
+            return true;
+        }
+
+        throw new Error("Did allow withdrawal of seized penalties even though caller is not the contract owner");
+    });
+
+    it("should allow the contract owner to withdraw the seized penalties (0.2 ETH)", async() => {
+        const ownerBalanceBefore = await web3.eth.getBalance(owner);
+        console.log("balance before: ", ownerBalanceBefore.toNumber());
+
+        const withdrawTxInfo = await mainContract.withdrawSeizedPenalties({from: owner});
+        const withdrawTx = await web3.eth.getTransaction(withdrawTxInfo.tx);
+        const withdrawGasCost = withdrawTx.gasPrice.mul(withdrawTxInfo.receipt.gasUsed);
+        console.log("withdraw gas cost: ", withdrawGasCost.toNumber());
+
+        const ownerBalanceAfter = await web3.eth.getBalance(owner);
+        console.log("balancer after: ", ownerBalanceAfter.toNumber());
+    });
+
+    const forthPurchaseIdentifersConsumerA = [21];
+
+    // function reportThrownAwayOneWayBottles(uint[] identifiers) public
+    it("should set the seized penalties to 0.2 ETH (even though no penalty had to be payed upon its first purchase to the retailer) because consumer A was reported to have thrown away one of his bottles and has already thrown away 6 bottles which induced the penalty", async() => {
+        const value = forthPurchaseIdentifersConsumerA.length * DEPOSIT_VALUE;
+        await mainContract.buyOneWayBottles(forthPurchaseIdentifersConsumerA, retail, {from: bottler, value: value});
+        const penalty = forthPurchaseIdentifersConsumerA.length * PENALTY_VALUE;
+        await mainContract.buyOneWayBottles(forthPurchaseIdentifersConsumerA, consumerA, {from: retail, value: penalty});
+        await mainContract.reportThrownAwayOneWayBottles(forthPurchaseIdentifersConsumerA, {from: collector});
+
+        assert(await mainContract.seizedPenalties(), penalty);
     });
 
 });

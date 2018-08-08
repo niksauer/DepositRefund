@@ -50,14 +50,15 @@ contract("DPG Deposit Refund Test", async (accounts) => {
         assert.equal(value, contractBalance);
     });
 
-    it("should accept deposits because bottle count (2) is greater than or equal to one (1) and value (2) equals that of bottle count (2)", async () => {
+    it("should add surplus in supplied deposits to agency fund", async () => {
         const bottles = 2;
-        const value = bottles * DEPOSIT_VALUE;
+        const minimumValue = bottles * DEPOSIT_VALUE;
+        const value = minimumValue * 1.5;
 
         await mainContract.deposit(bottles, {value: value});
-        const contractBalance = await web3.eth.getBalance(mainContract.address);
+        const agencyFund = await mainContract.agencyFund();
 
-        assert.equal(value, contractBalance);
+        assert.equal(agencyFund.toNumber(), value - minimumValue);
     });
 
     // function refund(uint bottleCount) public

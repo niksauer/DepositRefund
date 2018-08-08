@@ -160,9 +160,14 @@ contract DPG is Ownable {
     // MARK: - Private Methods
     // MARK: Deposit/Refund
     // => tested
-    function _deposit(uint bottleCount) internal view {
-        require(bottleCount > 0);
-        require(msg.value == bottleCount.mul(DEPOSIT_VALUE));
+    function _deposit(uint minimum) internal {
+        require(minimum > 0);
+
+        require(msg.value >= minimum);
+
+        if (msg.value > minimum) {
+            agencyFund = agencyFund.add(msg.value - minimum);
+        }
     }
 
     // => tested

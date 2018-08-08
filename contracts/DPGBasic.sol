@@ -11,7 +11,8 @@ contract DPGBasic is DPG {
 
     // MARK: - Public Methods
     function deposit(uint bottleCount) public payable {
-        _deposit(bottleCount);
+        uint minimumDeposit = bottleCount.mul(DEPOSIT_VALUE); 
+        _deposit(minimumDeposit);
     }
 
     function refund(uint bottleCount) public {

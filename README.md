@@ -12,3 +12,7 @@ Ethereum-powered incentivized deposit-refund system for bottled beverages in Ger
 ### Dependencies
 - [Truffle](https://truffleframework.com/)
 - [OpenZeppelin Solidity](https://github.com/OpenZeppelin/openzeppelin-solidity)
+
+### Testing
+1. `ganache-cli -p 7545 -e 200` (`-e` flag is only required for `DPGPenalty.test.js`)
+2. `truffle test`

@@ -1,3 +1,6 @@
+// https://github.com/trufflesuite/truffle/issues/650
+// https://github.com/trufflesuite/truffle/issues/501
+
 var DPGPenalty = artifacts.require("./DPGPenalty.sol");
 var DPGActorManager = artifacts.require("./DPGActorManager.sol");
 

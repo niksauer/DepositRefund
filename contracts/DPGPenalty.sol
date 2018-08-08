@@ -15,12 +15,11 @@ contract DPGPenalty is DPG {
     mapping(address => uint) internal foreignReturnedOneWayBottlesByConsumer;
     
     // MARK: - Public Properties
-    DPGToken public token;
+    DPGToken public token = new DPGToken();
 
     // MARK: - Initialization
-    constructor(address _actorManager) public DPG(_actorManager) {
-        token = DPGToken(this);
-    }
+    // solhint-disable-next-line no-empty-blocks
+    constructor(address _actorManager) public DPG(_actorManager) {}
 
     // MARK: - Public Methods
     function buyOneWayBottles(uint[] identifiers, address _address) public payable {
@@ -31,14 +30,19 @@ contract DPGPenalty is DPG {
 
             if (!token.exists(bottleId)) {
                 token.mint(_address, bottleId);
-                newBottles.add(1);
+                newBottles = newBottles.add(1);
             } else {
                 address owner = token.ownerOf(bottleId);
-                token.safeTransferFrom(owner, _address, bottleId);
+                
+                if (owner != _address) {
+                    token.safeTransferFrom(owner, _address, bottleId);
+                }
             }
         }
 
-        _deposit(newBottles);
+        if (newBottles > 0) {
+            _deposit(newBottles);
+        }
     }
 
     function returnOneWayBottles(uint[] identifiers, address _address) public {
@@ -71,7 +75,7 @@ contract DPGPenalty is DPG {
             uint bottleId = identifiers[i];
 
             if (!token.exists(bottleId)) {
-                // bottle must be recognized as one way bottle in order to increment counter
+                // bottle must be recognized as one way bottle in order to increment thrown away counter
                 // bottleCount = bottleCount.add(1);
                 continue;
             }
@@ -83,7 +87,22 @@ contract DPGPenalty is DPG {
             thrownAwayOneWayBottlesByConsumer[owner] = thrownAwayOneWayBottlesByConsumer[owner].add(1);
         }
 
-        _reportThrownAwayOneWayBottles(bottleCount);
+        if (bottleCount > 0) {
+            _reportThrownAwayOneWayBottles(bottleCount);        
+        }
+    }
+
+    // MARK: - Getters
+    function getSelfReturnedOneWayBottlesByConsumer(address _address) public view returns (uint) {
+        return selfReturnedOneWayBottlesByConsumer[_address];
+    }
+
+    function getForeignReturnedOneWayBottlesByConsumer(address _address) public view returns (uint) {
+        return foreignReturnedOneWayBottlesByConsumer[_address];
+    }
+
+    function getThrownAwayOneWayBottlesByBoncumser(address _address) public view returns (uint) {
+        return thrownAwayOneWayBottlesByConsumer[_address];   
     }
 
 }

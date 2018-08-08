@@ -8,11 +8,15 @@ import "./DPGToken.sol";
 contract DPGPenalty is DPG {
     using SafeMath for uint;
 
-    // MARK: - Public Properties
-    mapping(address => uint) internal thrownAwayOneWayBottlesByConsumer;
+    // MARK: - Types
+    struct Statistic {
+        uint thrownAwayOneWayBottles;
+        uint selfReturnedOneWayBottles;
+        uint foreignReturnedOneWayBottles;
+    }
 
-    mapping(address => uint) internal selfReturnedOneWayBottlesByConsumer;
-    mapping(address => uint) internal foreignReturnedOneWayBottlesByConsumer;
+    // MARK: - Public Properties
+    mapping(address => Statistic) internal statistics;
     
     // MARK: - Public Properties
     DPGToken public token = new DPGToken();
@@ -22,6 +26,7 @@ contract DPGPenalty is DPG {
     constructor(address _actorManager) public DPG(_actorManager) {}
 
     // MARK: - Public Methods
+    // => tested
     function buyOneWayBottles(uint[] identifiers, address _address) public payable {
         uint newBottles = 0;
 
@@ -45,6 +50,7 @@ contract DPGPenalty is DPG {
         }
     }
 
+    // => tested
     function returnOneWayBottles(uint[] identifiers, address _address) public {
         for (uint i = 0; i < identifiers.length; i++) {
             uint bottleId = identifiers[i];
@@ -57,9 +63,9 @@ contract DPGPenalty is DPG {
             token.burn(owner, bottleId);
 
             if (owner == _address) {
-                selfReturnedOneWayBottlesByConsumer[_address] = selfReturnedOneWayBottlesByConsumer[_address].add(1);
+                statistics[_address].selfReturnedOneWayBottles = statistics[_address].selfReturnedOneWayBottles.add(1);
             } else {
-                foreignReturnedOneWayBottlesByConsumer[owner] = foreignReturnedOneWayBottlesByConsumer[owner].add(1);
+                statistics[owner].foreignReturnedOneWayBottles = statistics[owner].foreignReturnedOneWayBottles.add(1);
             }
         }
     }
@@ -68,7 +74,8 @@ contract DPGPenalty is DPG {
         _refund(bottleCount);
     }
 
-    function reportThrownAwayOneWayBottlesByConsumer(uint[] identifiers) public {
+    // => tested
+    function reportThrownAwayOneWayBottles(uint[] identifiers) public {
         uint bottleCount = 0;
 
         for (uint i = 0; i < identifiers.length; i++) {
@@ -84,7 +91,7 @@ contract DPGPenalty is DPG {
 
             address owner = token.ownerOf(bottleId);
             token.burn(owner, bottleId);
-            thrownAwayOneWayBottlesByConsumer[owner] = thrownAwayOneWayBottlesByConsumer[owner].add(1);
+            statistics[owner].thrownAwayOneWayBottles = statistics[owner].thrownAwayOneWayBottles.add(1);
         }
 
         if (bottleCount > 0) {
@@ -94,15 +101,15 @@ contract DPGPenalty is DPG {
 
     // MARK: - Getters
     function getSelfReturnedOneWayBottlesByConsumer(address _address) public view returns (uint) {
-        return selfReturnedOneWayBottlesByConsumer[_address];
+        return statistics[_address].selfReturnedOneWayBottles;
     }
 
     function getForeignReturnedOneWayBottlesByConsumer(address _address) public view returns (uint) {
-        return foreignReturnedOneWayBottlesByConsumer[_address];
+        return statistics[_address].foreignReturnedOneWayBottles;
     }
 
-    function getThrownAwayOneWayBottlesByBoncumser(address _address) public view returns (uint) {
-        return thrownAwayOneWayBottlesByConsumer[_address];   
+    function getThrownAwayOneWayBottlesByConsumer(address _address) public view returns (uint) {
+        return statistics[_address].thrownAwayOneWayBottles;
     }
 
 }

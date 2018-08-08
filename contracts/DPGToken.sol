@@ -31,10 +31,12 @@ contract DPGToken is ERC721Token, Ownable {
         super.safeTransferFrom(_from, _to, _tokenId, _data);
     }
 
+    // => tested
     function mint(address _to, uint256 _tokenId) public onlyOwner {
         _mint(_to, _tokenId);
     }
 
+    // => tested
     function burn(address _owner, uint256 _tokenId) public onlyOwner {
         _burn(_owner, _tokenId);
     }

@@ -14,13 +14,16 @@ contract("DPG Penalty Test", async (accounts) => {
     const consumerA = accounts[3];
     const consumerB = accounts[4]
     const bottler = accounts[5]
+    const collector = accounts[6];
 
     // hooks
-    before("deploy contract with new actor manager dependency", async() => {
+    before("deploy contract with new actor manager dependency and add garbage collector", async() => {
         const actorManagerContract = await DPGActorManager.new();
         mainContract = await DPGPenalty.new(actorManagerContract.address);
         const tokenContractAddress = await mainContract.token();
         tokenContract = await DPGToken.at(tokenContractAddress);
+
+        await actorManagerContract.addGarbageCollector(collector, {from: owner});
     });
 
     // constructor
@@ -141,17 +144,17 @@ contract("DPG Penalty Test", async (accounts) => {
         assert.equal(foreignReturnedOneWays, firstPurchaseIdentifiersConsumerB.length);
     });
 
-    const firstNonsenseReturnConsumerA = [5];
+    const firstNonsenseReportIdentifiers = [5];
 
-    it("should not fail to accept report of returned bottles even though identifiers do not exist", async() => {
+    it("should not fail to accept report of returned bottles even though identifiers have not been registered through a purchase because some identifiers may potentially exist", async() => {
         try {
-            await returnOneWayBottles(firstNonsenseReturnConsumerA, consumerA, {from: retail});
+            await returnOneWayBottles(firstNonsenseReportIdentifiers, consumerA, {from: retail});
         } catch (error) {
             return false;
         }
     });
 
-    it("should also not increase the the number of self returned one way bottles for consumer A because the bottle identifiers do not exist", async() => {
+    it("should also not increase the number of self returned one way bottles for consumer A because the bottle identifiers have not been registered through a purchase", async() => {
         const selfReturnedOneWays = await mainContract.getSelfReturnedOneWayBottlesByConsumer(consumerA);
         
         assert.equal(selfReturnedOneWays, firstPurchaseIdentifiersConsumerA.length);
@@ -168,7 +171,29 @@ contract("DPG Penalty Test", async (accounts) => {
         throw new Error("Did burn token even though requestor is not contract owner");
     });
 
+    const secondNonsenseReportIdentifiers = [8, 9];
+
     // function reportThrownAwayOneWayBottlesByConsumer(uint[] identifiers) public
-    
+    it("should not increase number of thrown away one way bottles because bottle identifiers have not been registered through a purchase", async() => {
+        const thrownAwaysBefore = await mainContract.getThrownAwayOneWayBottles();
+        await mainContract.reportThrownAwayOneWayBottles(secondNonsenseReportIdentifiers);
+        const thrownAwaysAfter = await mainContract.getThrownAwayOneWayBottles();
+
+        assert(thrownAwaysAfter, thrownAwaysBefore);
+    });
+
+    const firstThrownAwayIdentifiers = [1] 
+
+    it("should set the number of thrown away one way bottles for consumer B to one (1) because consumer B purchases bottle 1 and a report of a thrown away bottle with identifier 1 is sent", async() => {
+        await mainContract.buyOneWayBottles(firstThrownAwayIdentifiers, consumerB, {from: retail})
+        await mainContract.reportThrownAwayOneWayBottles(secondNonsenseReportIdentifiers, {from: collector});
+        const thrownAways = await mainContract.getThrownAwayOneWayBottlesByConsumer(consumerB);
+
+        assert(thrownAways, firstThrownAwayIdentifiers.length);
+    });
+
+    it("should also set the number of thrown away bottles to 1 because a report of 1 thrown away one way bottle was accepted previously", async() => {
+        assert(await mainContract.getThrownAwayOneWayBottles(), firstThrownAwayIdentifiers.length);
+    });
 
 });

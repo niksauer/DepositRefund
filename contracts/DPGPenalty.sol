@@ -160,6 +160,33 @@ contract DPGPenalty is DPG {
         return getThrownAwayOneWayBottlesByConsumer(_address).div(PENALTY_THRESHOLD).mul(PENALTY_VALUE);
     }
 
+    function getMinimumDeposit(address _address, uint[] identifiers) public view returns (uint) {
+        uint newBottles = 0;
+        uint oldBottles = 0;
+        uint penalty = getPenaltyByConsumer(_address);
+
+        for (uint i = 0; i < identifiers.length; i++) {
+            uint bottleId = identifiers[i];
+            
+            if (!token.exists(bottleId)) {
+                newBottles = newBottles.add(1);
+            } else {
+                address owner = token.ownerOf(bottleId);
+                
+                if (owner != _address) {
+                    oldBottles = oldBottles.add(1);
+                }
+            }
+        }
+
+        return newBottles.mul(DEPOSIT_VALUE.add(penalty)) + oldBottles.mul(penalty);
+    }
+
+    function getMinimumDeposit(address _address, uint bottleCount) public view returns (uint) {
+        uint penalty = getPenaltyByConsumer(_address);
+        return bottleCount.mul(DEPOSIT_VALUE.add(penalty));
+    }
+
     // MARK: - Private Methods
     function increasePenaltyWithdraw(uint amount, address _address) internal {
         statistics[_address].penaltyWithdrawAmount = statistics[_address].penaltyWithdrawAmount.add(amount);

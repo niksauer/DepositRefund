@@ -130,8 +130,9 @@ contract("DPG Report Garbage Test", async (accounts) => {
 
     it("should increase reported count of thrown away bottles to 14 because another report of 13 bottles is sent by collector A", async() => {
         await mainContract.reportThrownAwayOneWayBottles(secondReportPeriod1, {from: collectorA});
+        const thrownAways = await mainContract.getThrownAwayOneWayBottles();
 
-        assert.equal(await mainContract.getThrownAwayOneWayBottles(), firstReportPeriod1 + secondReportPeriod1);
+        assert.equal(thrownAways.toNumber(), firstReportPeriod1 + secondReportPeriod1);
     });
 
     it("should also increase agency fund by 50% of reported count's deposit value (6.5 ETH) because another report of 13 bottles was accepted previously", async() => {

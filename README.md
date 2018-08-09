@@ -2,6 +2,9 @@
 <a href="http://solidity.readthedocs.io/en/v0.4.24/">
     <img src="http://img.shields.io/badge/solidity-0.4.24-brightgreen.svg" alt="Solidity 0.4.24">
 </a>
+<a href="https://coveralls.io/github/niksauer/DepositRefund?branch=coverage">
+    <img src="https://coveralls.io/repos/github/niksauer/DepositRefund/badge.svg?branch=coverage" alt='Coverage Status'/>
+</a>
 
 Ethereum-powered incentivized deposit-refund system for bottled beverages in Germany.
 

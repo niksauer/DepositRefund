@@ -46,8 +46,7 @@ contract DPGToken is ERC721Token, Ownable {
     }
 
     // MARK: - Private Methods
-    // solhint-disable-next-line no-unused-vars
-    function isApprovedOrOwner(address _spender, uint256 _tokenId) internal view returns (bool) {
+    function isApprovedOrOwner(address, uint256) internal view returns (bool) {
         return true;
     }
 

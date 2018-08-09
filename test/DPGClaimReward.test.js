@@ -56,7 +56,7 @@ contract("DPG Claim Reward Test", async (accounts) => {
         const soldBottles = 10;
 
         await mainContract.deposit(soldBottles, {from: retail, value: soldBottles * DEPOSIT_VALUE});
-        await actorManagerContract.addGarbageCollector(collectorA, {from: owner});
+        await actorManagerContract.addCollector(collectorA, {from: owner});
     });
 
     // function claimReward() public periodDependent

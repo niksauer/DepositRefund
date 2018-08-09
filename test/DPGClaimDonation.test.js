@@ -53,13 +53,13 @@ contract("DPG Claim Donation Test", async (accounts) => {
 
         const bottles = 4;
         await mainContract.deposit(bottles, {from: retail, value: bottles * DEPOSIT_VALUE});
-        await actorManagerContract.addGarbageCollector(collectorA, {from: owner});
+        await actorManagerContract.addCollector(collectorA, {from: owner});
     });
 
     // function addEnvironmentalAgency(address _address) public onlyOwner
     it("should fail to add agency A as an approved environmental agency because caller is not the contract owner", async() => {
         try {
-            await actorManagerContract.addEnvironmentalAgency(agencyA, {from: requestor});
+            await actorManagerContract.addAgency(agencyA, {from: requestor});
         } catch (error) {
             return true;
         }
@@ -68,13 +68,13 @@ contract("DPG Claim Donation Test", async (accounts) => {
     });
 
     it("should add agency A as an approved environmental agency because caller is contract owner", async() => {
-        await actorManagerContract.addEnvironmentalAgency(agencyA, {from: owner});
-        assert.isTrue(await actorManagerContract.isApprovedEnvironmentalAgency(agencyA));
+        await actorManagerContract.addAgency(agencyA, {from: owner});
+        assert.isTrue(await actorManagerContract.isApprovedAgency(agencyA));
     });
 
     it("should fail to add agency B as an approved environmental agency because agency's address (0x0) equals that of zero address", async() => {
         try {
-            await actorManagerContract.addEnvironmentalAgency(agencyB, {from: owner});
+            await actorManagerContract.addAgency(agencyB, {from: owner});
         } catch (error) {
             return true;
         }
@@ -84,7 +84,7 @@ contract("DPG Claim Donation Test", async (accounts) => {
 
     it("should fail to add collector A as an environmental agency because agency A is already approved", async() => {
         try {
-            await actorManagerContract.addEnvironmentalAgency(agencyA, {from: owner});
+            await actorManagerContract.addAgency(agencyA, {from: owner});
         } catch (error) {
             return true;
         }
@@ -171,7 +171,7 @@ contract("DPG Claim Donation Test", async (accounts) => {
     const firstReportPeriod2 = 2;
 
     it("should send the donation (0.5 ETH = 50% of agency funds) to agency C because the funds were emptied and agency C is added and another report of 2 thrown away bottles is sent in the next period (index: 3)", async() => {
-        await actorManagerContract.addEnvironmentalAgency(agencyC, {from: owner});
+        await actorManagerContract.addAgency(agencyC, {from: owner});
 
         await timeTravel(86400 * 29);
         await mineBlock();

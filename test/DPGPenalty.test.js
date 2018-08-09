@@ -24,7 +24,7 @@ contract("DPG Penalty Test", async (accounts) => {
         const tokenContractAddress = await mainContract.token();
         tokenContract = await DPGToken.at(tokenContractAddress);
 
-        await actorManagerContract.addGarbageCollector(collector, {from: owner});
+        await actorManagerContract.addCollector(collector, {from: owner});
     });
 
     // constructor
@@ -130,7 +130,7 @@ contract("DPG Penalty Test", async (accounts) => {
     });
 
     it("should also set the number of self returned one way bottles to 2 for consumer A because retail reported return of 2 bottles purchased by consumer A and returned by consumer A", async() => {
-        const selfReturnedOneWays = await mainContract.getSelfReturnedOneWayBottlesByConsumer(consumerA);
+        const selfReturnedOneWays = await mainContract.getSelfReturnedOneWayBottles(consumerA);
 
         assert.equal(selfReturnedOneWays, firstPurchaseIdentifiersConsumerA.length);
     });
@@ -140,7 +140,7 @@ contract("DPG Penalty Test", async (accounts) => {
     it("should set the number of foreign returned one way bottles to 1 for consumer B because retail reported return of 1 bottle purchased by consumer B but returned by consumer A", async() => {
         await mainContract.buyOneWayBottles(firstPurchaseIdentifiersConsumerB, consumerB, {from: retail});
         await mainContract.returnOneWayBottles(firstPurchaseIdentifiersConsumerB, consumerA, {from: retail});
-        const foreignReturnedOneWays = await mainContract.getForeignReturnedOneWayBottlesByConsumer(consumerB);
+        const foreignReturnedOneWays = await mainContract.getForeignReturnedOneWayBottles(consumerB);
 
         assert.equal(foreignReturnedOneWays, firstPurchaseIdentifiersConsumerB.length);
     });
@@ -156,7 +156,7 @@ contract("DPG Penalty Test", async (accounts) => {
     });
 
     it("should also not increase the number of self returned one way bottles for consumer A because the bottle identifiers have not been registered through a purchase", async() => {
-        const selfReturnedOneWays = await mainContract.getSelfReturnedOneWayBottlesByConsumer(consumerA);
+        const selfReturnedOneWays = await mainContract.getSelfReturnedOneWayBottles(consumerA);
         
         assert.equal(selfReturnedOneWays, firstPurchaseIdentifiersConsumerA.length);
     });
@@ -188,7 +188,7 @@ contract("DPG Penalty Test", async (accounts) => {
     it("should set the number of thrown away one way bottles for consumer B to one (1) because consumer B purchases bottle 1 and a report of a thrown away bottle with identifier 1 is sent", async() => {
         await mainContract.buyOneWayBottles(firstThrownAwayIdentifiers, consumerB, {from: retail})
         await mainContract.reportThrownAwayOneWayBottles(secondNonsenseReportIdentifiers, {from: collector});
-        const thrownAways = await mainContract.getThrownAwayOneWayBottlesByConsumer(consumerB);
+        const thrownAways = await mainContract.getThrownAwayOneWayBottlesForConsumer(consumerB);
 
         assert(thrownAways, firstThrownAwayIdentifiers.length);
     });
@@ -205,7 +205,7 @@ contract("DPG Penalty Test", async (accounts) => {
         const value = secondPurchaseIdentifiersConsumerA.length * DEPOSIT_VALUE;
         await mainContract.buyOneWayBottles(secondPurchaseIdentifiersConsumerA, consumerA, {from: retail, value: value});
         await mainContract.reportThrownAwayOneWayBottles(secondThrownAwayIdentifiersConsumerA, {from: collector});
-        const penalty = await mainContract.getPenaltyByConsumer(consumerA);
+        const penalty = await mainContract.getPenalty(consumerA);
 
         assert.equal(penalty, PENALTY_VALUE);
     });
@@ -234,7 +234,7 @@ contract("DPG Penalty Test", async (accounts) => {
     // function returnOneWayBottles(uint[] identifiers, address _address) public
     it("should increase the penalty withdraw amount to 0.2 ETH because consumer A returned one of his bottles personally", async() => {
         await mainContract.returnOneWayBottles([19], consumerA, {from: retail});
-        const amount = await mainContract.getPenaltyWithdrawAmountByConsumer(consumerA);
+        const amount = await mainContract.getPenaltyWithdrawAmount(consumerA);
         
         assert.equal(amount, PENALTY_VALUE);
     });

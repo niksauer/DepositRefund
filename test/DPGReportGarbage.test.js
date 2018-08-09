@@ -79,7 +79,7 @@ contract("DPG Report Garbage Test", async (accounts) => {
     // function addGarbageCollector(address _address) public onlyOwner
     it("should fail to add collector A as an approved garbage collector because caller is not the contract owner", async() => {
         try {
-            await actorManagerContract.addGarbageCollector(collectorA, {from: requestor});
+            await actorManagerContract.addCollector(collectorA, {from: requestor});
         } catch (error) {
             return true;
         }
@@ -88,14 +88,14 @@ contract("DPG Report Garbage Test", async (accounts) => {
     });
 
     it("should add collector A as an approved garbage collector because caller is contract owner", async() => {
-        await actorManagerContract.addGarbageCollector(collectorA, {from: owner});
+        await actorManagerContract.addCollector(collectorA, {from: owner});
         
-        assert.isTrue(await actorManagerContract.isApprovedGarbageCollector(collectorA));
+        assert.isTrue(await actorManagerContract.isApprovedCollector(collectorA));
     });
 
     it("should fail to add collector B as an approved garbage collector because collector's address (0x0) equals that of zero address", async() => {
         try {
-            await actorManagerContract.addGarbageCollector(collectorB, {from: owner});
+            await actorManagerContract.addCollector(collectorB, {from: owner});
         } catch (error) {
             return true;
         }
@@ -105,7 +105,7 @@ contract("DPG Report Garbage Test", async (accounts) => {
 
     it("should fail to add collector A as an approved garbage collector because collector A is already approved", async() => {
         try {
-            await actorManagerContract.addGarbageCollector(collectorA, {from: owner});
+            await actorManagerContract.addCollector(collectorA, {from: owner});
         } catch (error) {
             return true;
         }

@@ -16,10 +16,6 @@ contract DPGPenalty is DPG {
         uint penaltyWithdrawAmount;
     }
 
-    // MARK: - Private Properties
-    mapping(address => Statistic) internal statistics;
-    mapping(uint => uint) internal penaltyByTokenId;
-    
     // MARK: - Public Properties
     uint public constant PENALTY_THRESHOLD = 5;
     uint public constant PENALTY_VALUE = 0.2 ether;
@@ -28,47 +24,51 @@ contract DPGPenalty is DPG {
 
     uint public seizedPenalties;
 
+    // MARK: - Internal Properties
+    mapping(address => Statistic) internal statisticByConsumer;
+    mapping(uint => uint) internal penaltyByBottleId;
+
     // MARK: - Initialization
     // solhint-disable-next-line no-empty-blocks
     constructor(address _actorManager) public DPG(_actorManager) {}
 
     // MARK: - Public Methods
     // => tested
-    function buyOneWayBottles(uint[] identifiers, address _address) public payable {
+    function buyOneWayBottles(uint[] _identifiers, address _address) public payable {
         uint newBottles = 0;
         uint oldBottles = 0;
-        uint penalty = getPenaltyByConsumer(_address);
+        uint penalty = getPenalty(_address);
 
-        for (uint i = 0; i < identifiers.length; i++) {
-            uint bottleId = identifiers[i];
+        for (uint i = 0; i < _identifiers.length; i++) {
+            uint bottleId = _identifiers[i];
             
             if (!token.exists(bottleId)) {
                 token.mint(_address, bottleId);
                 newBottles = newBottles.add(1);
-                penaltyByTokenId[bottleId] = penalty;
+                penaltyByBottleId[bottleId] = penalty;
             } else {
                 address owner = token.ownerOf(bottleId);
                 
                 if (owner != _address) {
                     token.safeTransferFrom(owner, _address, bottleId);
                     oldBottles = oldBottles.add(1);
-                    increasePenaltyWithdraw(penaltyByTokenId[bottleId], owner);
-                    penaltyByTokenId[bottleId] = penalty;
+                    increasePenaltyWithdraw(penaltyByBottleId[bottleId], owner);
+                    penaltyByBottleId[bottleId] = penalty;
                 }
             }
         }
 
-        uint minimumDeposit = newBottles.mul(DEPOSIT_VALUE.add(penalty)) + oldBottles.mul(penalty);
+        uint deposit = newBottles.mul(DEPOSIT_VALUE.add(penalty)) + oldBottles.mul(penalty);
         
-        if (minimumDeposit > 0) {
-            _deposit(minimumDeposit);    
+        if (deposit > 0) {
+            _deposit(deposit);    
         }
     }
 
     // => tested
-    function returnOneWayBottles(uint[] identifiers, address _address) public {
-        for (uint i = 0; i < identifiers.length; i++) {
-            uint bottleId = identifiers[i];
+    function returnOneWayBottles(uint[] _identifiers, address _address) public {
+        for (uint i = 0; i < _identifiers.length; i++) {
+            uint bottleId = _identifiers[i];
 
             if (!token.exists(bottleId)) {
                 continue;
@@ -77,7 +77,7 @@ contract DPGPenalty is DPG {
             address owner = token.ownerOf(bottleId);
             token.burn(owner, bottleId);
 
-            uint penalty = penaltyByTokenId[bottleId];
+            uint penalty = penaltyByBottleId[bottleId];
 
             if (owner == _address) {
                 incrementSelfReturnedOneWayBottles(owner);
@@ -89,16 +89,16 @@ contract DPGPenalty is DPG {
         }
     }
 
-    function refund(uint bottleCount) public {
-        _refund(bottleCount);
+    function refund(uint _bottleCount) public {
+        _refund(_bottleCount);
     }
 
     // => tested
-    function reportThrownAwayOneWayBottles(uint[] identifiers) public {
+    function reportThrownAwayOneWayBottles(uint[] _identifiers) public {
         uint bottleCount = 0;
 
-        for (uint i = 0; i < identifiers.length; i++) {
-            uint bottleId = identifiers[i];
+        for (uint i = 0; i < _identifiers.length; i++) {
+            uint bottleId = _identifiers[i];
 
             if (!token.exists(bottleId)) {
                 // bottle must be recognized as one way bottle in order to increment thrown away counter
@@ -113,7 +113,7 @@ contract DPGPenalty is DPG {
             
             incrementThrownAwayOneWayBottles(owner);
             
-            uint penalty = penaltyByTokenId[bottleId];
+            uint penalty = penaltyByBottleId[bottleId];
             seizedPenalties = seizedPenalties.add(penalty);
         }
 
@@ -124,7 +124,7 @@ contract DPGPenalty is DPG {
 
     // => tested
     function withdrawPenalty() public {
-        uint amount = statistics[msg.sender].penaltyWithdrawAmount;
+        uint amount = statisticByConsumer[msg.sender].penaltyWithdrawAmount;
         require(amount > 0);
 
         msg.sender.transfer(amount);
@@ -138,35 +138,36 @@ contract DPGPenalty is DPG {
     }
 
     // MARK: - Getters
-    function getSelfReturnedOneWayBottlesByConsumer(address _address) public view returns (uint) {
-        return statistics[_address].selfReturnedOneWayBottles;
+    function getSelfReturnedOneWayBottles(address _address) public view returns (uint) {
+        return statisticByConsumer[_address].selfReturnedOneWayBottles;
     }
 
-    function getForeignReturnedOneWayBottlesByConsumer(address _address) public view returns (uint) {
-        return statistics[_address].foreignReturnedOneWayBottles;
+    function getForeignReturnedOneWayBottles(address _address) public view returns (uint) {
+        return statisticByConsumer[_address].foreignReturnedOneWayBottles;
     }
 
-    function getThrownAwayOneWayBottlesByConsumer(address _address) public view returns (uint) {
-        return statistics[_address].thrownAwayOneWayBottles;
-    }
-
-    // => tested
-    function getPenaltyWithdrawAmountByConsumer(address _address) public view returns (uint) {
-        return statistics[_address].penaltyWithdrawAmount;
+    // https://github.com/trufflesuite/truffle/issues/569
+    function getThrownAwayOneWayBottlesForConsumer(address _address) public view returns (uint) {
+        return statisticByConsumer[_address].thrownAwayOneWayBottles;
     }
 
     // => tested
-    function getPenaltyByConsumer(address _address) public view returns (uint) {
-        return getThrownAwayOneWayBottlesByConsumer(_address).div(PENALTY_THRESHOLD).mul(PENALTY_VALUE);
+    function getPenaltyWithdrawAmount(address _address) public view returns (uint) {
+        return statisticByConsumer[_address].penaltyWithdrawAmount;
     }
 
-    function getMinimumDeposit(address _address, uint[] identifiers) public view returns (uint) {
+    // => tested
+    function getPenalty(address _address) public view returns (uint) {
+        return getThrownAwayOneWayBottlesForConsumer(_address).div(PENALTY_THRESHOLD).mul(PENALTY_VALUE);
+    }
+
+    function getMinimumDeposit(address _address, uint[] _identifiers) public view returns (uint) {
         uint newBottles = 0;
         uint oldBottles = 0;
-        uint penalty = getPenaltyByConsumer(_address);
+        uint penalty = getPenalty(_address);
 
-        for (uint i = 0; i < identifiers.length; i++) {
-            uint bottleId = identifiers[i];
+        for (uint i = 0; i < _identifiers.length; i++) {
+            uint bottleId = _identifiers[i];
             
             if (!token.exists(bottleId)) {
                 newBottles = newBottles.add(1);
@@ -182,26 +183,26 @@ contract DPGPenalty is DPG {
         return newBottles.mul(DEPOSIT_VALUE.add(penalty)) + oldBottles.mul(penalty);
     }
 
-    function getMinimumDeposit(address _address, uint bottleCount) public view returns (uint) {
-        uint penalty = getPenaltyByConsumer(_address);
-        return bottleCount.mul(DEPOSIT_VALUE.add(penalty));
+    function getMinimumDeposit(address _address, uint _bottleCount) public view returns (uint) {
+        uint penalty = getPenalty(_address);
+        return _bottleCount.mul(DEPOSIT_VALUE.add(penalty));
     }
 
     // MARK: - Private Methods
-    function increasePenaltyWithdraw(uint amount, address _address) internal {
-        statistics[_address].penaltyWithdrawAmount = statistics[_address].penaltyWithdrawAmount.add(amount);
+    function increasePenaltyWithdraw(uint _amount, address _address) internal {
+        statisticByConsumer[_address].penaltyWithdrawAmount = statisticByConsumer[_address].penaltyWithdrawAmount.add(_amount);
     }
 
     function incrementSelfReturnedOneWayBottles(address _address) internal {
-        statistics[_address].selfReturnedOneWayBottles = statistics[_address].selfReturnedOneWayBottles.add(1);
+        statisticByConsumer[_address].selfReturnedOneWayBottles = statisticByConsumer[_address].selfReturnedOneWayBottles.add(1);
     }
 
     function incrementForeignReturnedOneWayBottles(address _address) internal {
-        statistics[_address].foreignReturnedOneWayBottles = statistics[_address].foreignReturnedOneWayBottles.add(1);
+        statisticByConsumer[_address].foreignReturnedOneWayBottles = statisticByConsumer[_address].foreignReturnedOneWayBottles.add(1);
     }
 
     function incrementThrownAwayOneWayBottles(address _address) internal {
-        statistics[_address].thrownAwayOneWayBottles = statistics[_address].thrownAwayOneWayBottles.add(1);
+        statisticByConsumer[_address].thrownAwayOneWayBottles = statisticByConsumer[_address].thrownAwayOneWayBottles.add(1);
     }
 
 }

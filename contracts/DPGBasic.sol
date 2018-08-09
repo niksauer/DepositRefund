@@ -10,17 +10,17 @@ contract DPGBasic is DPG {
     constructor(address _actorManager) public DPG(_actorManager) {}
 
     // MARK: - Public Methods
-    function deposit(uint bottleCount) public payable {
-        uint minimumDeposit = bottleCount.mul(DEPOSIT_VALUE); 
-        _deposit(minimumDeposit);
+    function deposit(uint _bottleCount) public payable {
+        uint amount = _bottleCount.mul(DEPOSIT_VALUE); 
+        _deposit(amount);
     }
 
-    function refund(uint bottleCount) public {
-        _refund(bottleCount);
+    function refund(uint _bottleCount) public {
+        _refund(_bottleCount);
     }
 
-    function reportThrownAwayOneWayBottles(uint bottleCount) public {
-        _reportThrownAwayOneWayBottles(bottleCount);
+    function reportThrownAwayOneWayBottles(uint _bottleCount) public {
+        _reportThrownAwayOneWayBottles(_bottleCount);
     }
 
 }

@@ -1,8 +1,8 @@
 pragma solidity 0.4.24;
 
 import "../node_modules/openzeppelin-solidity/contracts/math/SafeMath.sol";
-import "./interfaces/IDPGActorManager.sol";
-import "./interfaces/Ownable.sol";
+import "./base/Ownable.sol";
+import "./interface/IDPGActorManager.sol";
 
 
 contract DPG is Ownable {
@@ -24,26 +24,27 @@ contract DPG is Ownable {
         mapping(address => Consumer) consumers;
     }
 
-    // MARK: - Private Properties
-    IDPGActorManager internal actorManager;
-    mapping(address => uint) internal lastClaimByAgency;
-
-    PeriodName internal currentPeriodName;
-    Period internal periodA;
-    Period internal periodB;
-
     // MARK: - Public Properties
     uint public constant PERIOD_LENGTH = 4 weeks;
     uint public constant DEPOSIT_VALUE = 1 ether;
 
-    uint public currentPeriodIndex;
-    uint public currentPeriodStart;
+    uint public currentPeriodIndex = 1;
+    uint public currentPeriodStart = now;
 
     uint[] public reusableBottlePurchasesInPeriod;
     uint[] public thrownAwayOneWayBottlesInPeriod;
 
     uint public unclaimedRewards;
     uint public agencyFund;
+
+    // MARK: - Internal Properties
+    IDPGActorManager internal actorManager;
+    mapping(address => uint) internal lastClaimByAgency;
+
+    // MARK: - Private Properties
+    PeriodName private currentPeriodName = PeriodName.A;
+    Period private periodA;
+    Period private periodB;
 
     // MARK: - Modifier
     modifier periodDependent() {
@@ -60,12 +61,8 @@ contract DPG is Ownable {
     // MARK: - Initialization
     constructor(address _actorManager) public Ownable(msg.sender) {
         actorManager = IDPGActorManager(_actorManager);
-        currentPeriodIndex = 1;
-        currentPeriodStart = now;
-        currentPeriodName = PeriodName.A;
         periodA.index = currentPeriodIndex;
         periodB.index = currentPeriodIndex.add(1);
-        unclaimedRewards = 0;
     }
 
     // MARK: - Public Methods
@@ -76,8 +73,8 @@ contract DPG is Ownable {
 
     // MARK: Reporting
     // => tested
-    function reportReusableBottlePurchase(address _address, uint bottleCount) public periodDependent {
-        require(bottleCount > 0);
+    function reportReusableBottlePurchase(address _address, uint _bottleCount) public periodDependent {
+        require(_bottleCount > 0);
         require(_address != address(0));
 
         Period storage period = getAccountingPeriod();
@@ -87,8 +84,8 @@ contract DPG is Ownable {
             resetConsumer(consumer);
         }
 
-        consumer.reusableBottlePurchases = consumer.reusableBottlePurchases.add(bottleCount);
-        period.reusableBottlePurchases = period.reusableBottlePurchases.add(bottleCount);
+        consumer.reusableBottlePurchases = consumer.reusableBottlePurchases.add(_bottleCount);
+        period.reusableBottlePurchases = period.reusableBottlePurchases.add(_bottleCount);
     }
 
     // MARK: Reward/Donation
@@ -119,7 +116,7 @@ contract DPG is Ownable {
     function claimDonation() public periodDependent {
         require(currentPeriodIndex > 1);
 
-        require(actorManager.isApprovedEnvironmentalAgency(msg.sender));
+        require(actorManager.isApprovedAgency(msg.sender));
 
         require(actorManager.getJoinedTimestampForAgency(msg.sender) < now.sub(PERIOD_LENGTH));
 
@@ -139,7 +136,8 @@ contract DPG is Ownable {
         return getAccountingPeriod().reusableBottlePurchases;
     }
 
-    function getReusableBottlePurchasesByConsumer(address _address) public view returns (uint) {
+    // https://github.com/trufflesuite/truffle/issues/569
+    function getReusableBottlePurchasesForConsumer(address _address) public view returns (uint) {
         return getAccountingPeriod().consumers[_address].reusableBottlePurchases;
     }
 
@@ -157,41 +155,84 @@ contract DPG is Ownable {
         return rewardPeriod.consumers[_address].hasClaimedReward;
     }
 
-    // MARK: - Private Methods
+    function getDonationAmount() public view returns (uint) {
+        uint agencyCount = actorManager.getCountOfApprovedAgencies();
+
+        if (agencyCount == 0) {
+            return 0;
+        }
+
+        // agencyFund / approvedAgencies
+        return agencyFund.div(agencyCount);
+    }
+
+    function getRewardAmount(address _address) public view returns (uint) {
+        Period storage period = getRewardPeriod();
+        Consumer storage consumer = period.consumers[_address];
+
+        if (consumer.lastResetPeriodIndex < currentPeriodIndex.sub(1)) {
+            return 0;
+        } else {
+            return getRewardAmount(consumer.reusableBottlePurchases, period.index);
+        }
+    }
+
+    // MARK: - Internal Methods
     // MARK: Deposit/Refund
     // => tested
-    function _deposit(uint minimum) internal {
-        require(minimum > 0);
+    function _deposit(uint _amount) internal {
+        require(_amount > 0);
 
-        require(msg.value >= minimum);
+        require(msg.value >= _amount);
 
-        if (msg.value > minimum) {
-            agencyFund = agencyFund.add(msg.value - minimum);
+        if (msg.value > _amount) {
+            agencyFund = agencyFund.add(msg.value - _amount);
         }
     }
 
     // => tested
-    function _refund(uint bottleCount) internal {
-        require(bottleCount > 0);
+    function _refund(uint _bottleCount) internal {
+        require(_bottleCount > 0);
 
-        uint amount = bottleCount.mul(DEPOSIT_VALUE);
+        uint amount = _bottleCount.mul(DEPOSIT_VALUE);
         msg.sender.transfer(amount);
     }
 
     // MARK: Reporting
     // => tested
-    function _reportThrownAwayOneWayBottles(uint bottleCount) internal periodDependent {
-        require(bottleCount > 0);
-        require(actorManager.isApprovedGarbageCollector(msg.sender));
+    function _reportThrownAwayOneWayBottles(uint _bottleCount) internal periodDependent {
+        require(_bottleCount > 0);
+        require(actorManager.isApprovedCollector(msg.sender));
 
         Period storage period = getAccountingPeriod();
-        period.thrownAwayOneWayBottles = period.thrownAwayOneWayBottles.add(bottleCount);
+        period.thrownAwayOneWayBottles = period.thrownAwayOneWayBottles.add(_bottleCount);
 
-        agencyFund = agencyFund.add(bottleCount.mul(DEPOSIT_VALUE).div(2));
+        agencyFund = agencyFund.add(_bottleCount.mul(DEPOSIT_VALUE).div(2));
     }
 
+    function getAccountingPeriod() internal view returns (Period storage) {
+        return currentPeriodName == PeriodName.A ? periodA : periodB;
+    }
+
+    function getRewardPeriod() internal view returns (Period storage) {
+        return currentPeriodName == PeriodName.A ? periodB : periodA;
+    }
+
+    function getRewardAmount(uint _reusableBottlePurchases, uint _periodIndex) internal view returns (uint) {
+        uint totalReusableBottlePurchases = reusableBottlePurchasesInPeriod[_periodIndex.sub(1)];
+        uint thrownAwayOneWayBottles = thrownAwayOneWayBottlesInPeriod[_periodIndex.sub(1)];
+
+        if (_reusableBottlePurchases == 0 || thrownAwayOneWayBottles == 0) {
+            return 0;
+        }
+
+        // userShare * ((thrownAwayOneWayBottles * DEPOSIT_VALUE) / 2)
+        return (_reusableBottlePurchases.div(totalReusableBottlePurchases)).mul(thrownAwayOneWayBottles.mul(DEPOSIT_VALUE).div(2));
+    }
+
+    // MARK: - Private Methods
     // MARK: Accounting
-    function setNextPeriod() internal {
+    function setNextPeriod() private {
         uint periodEnd = currentPeriodStart.add(PERIOD_LENGTH);
         require(now >= periodEnd);
 
@@ -221,51 +262,20 @@ contract DPG is Ownable {
         resetPeriod(period);
     }
 
-    function getAccountingPeriod() internal view returns (Period storage) {
-        return currentPeriodName == PeriodName.A ? periodA : periodB;
+    function resetPeriod(Period storage _period) private {
+        _period.index = currentPeriodIndex;
+        _period.reusableBottlePurchases = 0;
+        _period.thrownAwayOneWayBottles = 0;
     }
 
-    function getRewardPeriod() internal view returns (Period storage) {
-        return currentPeriodName == PeriodName.A ? periodB : periodA;
-    }
-
-    function getRewardAmount(uint reusableBottlePurchases, uint periodIndex) internal view returns (uint) {
-        uint totalReusableBottlePurchases = reusableBottlePurchasesInPeriod[periodIndex.sub(1)];
-        uint thrownAwayOneWayBottles = thrownAwayOneWayBottlesInPeriod[periodIndex.sub(1)];
-
-        if (reusableBottlePurchases == 0 || thrownAwayOneWayBottles == 0) {
-            return 0;
+    function resetConsumer(Consumer storage _consumer) private {
+        if (!_consumer.hasClaimedReward && _consumer.lastResetPeriodIndex > 0) {
+            unclaimedRewards = unclaimedRewards.add(getRewardAmount(_consumer.reusableBottlePurchases, _consumer.lastResetPeriodIndex));
         }
 
-        // userShare * ((thrownAwayOneWayBottles * DEPOSIT_VALUE) / 2)
-        return (reusableBottlePurchases.div(totalReusableBottlePurchases)).mul(thrownAwayOneWayBottles.mul(DEPOSIT_VALUE).div(2));
-    }
-
-    function getDonationAmount() internal view returns (uint) {
-        uint agencyCount = actorManager.getCountOfApprovedAgencies();
-
-        if (agencyCount == 0) {
-            return 0;
-        }
-
-        // agencyFund / approvedAgencies
-        return agencyFund.div(agencyCount);
-    }
-
-    function resetPeriod(Period storage period) internal {
-        period.index = currentPeriodIndex;
-        period.reusableBottlePurchases = 0;
-        period.thrownAwayOneWayBottles = 0;
-    }
-
-    function resetConsumer(Consumer storage consumer) internal {
-        if (!consumer.hasClaimedReward && consumer.lastResetPeriodIndex > 0) {
-            unclaimedRewards = unclaimedRewards.add(getRewardAmount(consumer.reusableBottlePurchases, consumer.lastResetPeriodIndex));
-        }
-
-        consumer.reusableBottlePurchases = 0;
-        consumer.hasClaimedReward = false;
-        consumer.lastResetPeriodIndex = currentPeriodIndex;
+        _consumer.reusableBottlePurchases = 0;
+        _consumer.hasClaimedReward = false;
+        _consumer.lastResetPeriodIndex = currentPeriodIndex;
     }
 
 }

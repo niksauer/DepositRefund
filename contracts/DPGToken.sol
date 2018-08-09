@@ -1,7 +1,7 @@
 pragma solidity 0.4.24;
 
 import "../node_modules/openzeppelin-solidity/contracts/token/ERC721/ERC721Token.sol";
-import "./interfaces/Ownable.sol";
+import "./base/Ownable.sol";
 
 
 contract DPGToken is ERC721Token, Ownable {

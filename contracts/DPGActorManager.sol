@@ -14,8 +14,8 @@ contract DPGActorManager is ActorManager, Ownable, IDPGActorManager {
     uint internal approvedCollectors;
 
     // MARK: - Private Properties
-    mapping(address => Member) private agencies;
-    mapping(address => Member) private collectors;
+    mapping(address => Actor) private agencies;
+    mapping(address => Actor) private collectors;
 
     // MARK: - Initialization
     // solhint-disable-next-line no-empty-blocks
@@ -52,7 +52,7 @@ contract DPGActorManager is ActorManager, Ownable, IDPGActorManager {
     function addAgency(address _address) public onlyOwner {
         require(_address != address(0));
 
-        Member storage agency = agencies[_address];
+        Actor storage agency = agencies[_address];
         approve(agency);
         approvedAgencies = approvedAgencies.add(1);
     }
@@ -60,7 +60,7 @@ contract DPGActorManager is ActorManager, Ownable, IDPGActorManager {
     function removeAgency(address _address) public onlyOwner {
         require(_address != address(0));
 
-        Member storage agency = agencies[_address];
+        Actor storage agency = agencies[_address];
         deny(agency);
         approvedAgencies = approvedAgencies.sub(1);
     }
@@ -70,7 +70,7 @@ contract DPGActorManager is ActorManager, Ownable, IDPGActorManager {
     function addCollector(address _address) public onlyOwner {
         require(_address != address(0));
 
-        Member storage collector = collectors[_address];
+        Actor storage collector = collectors[_address];
         approve(collector);
         approvedCollectors = approvedCollectors.add(1);
     }
@@ -78,7 +78,7 @@ contract DPGActorManager is ActorManager, Ownable, IDPGActorManager {
     function removeCollector(address _address) public onlyOwner {
         require(_address != address(0));
 
-        Member storage collector = collectors[_address];
+        Actor storage collector = collectors[_address];
         deny(collector);
         approvedCollectors = approvedCollectors.sub(1);
     }

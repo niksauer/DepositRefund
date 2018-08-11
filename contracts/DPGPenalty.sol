@@ -9,7 +9,7 @@ contract DPGPenalty is DPG {
     using SafeMath for uint;
 
     // MARK: - Types
-    struct Statistic {
+    struct UserStatistic {
         uint thrownAwayOneWayBottles;
         uint selfReturnedOneWayBottles;
         uint foreignReturnedOneWayBottles;
@@ -25,7 +25,7 @@ contract DPGPenalty is DPG {
     uint public seizedPenalties;
 
     // MARK: - Internal Properties
-    mapping(address => Statistic) internal statisticByConsumer;
+    mapping(address => UserStatistic) internal statisticByConsumer;
     mapping(uint => uint) internal penaltyByBottleId;
 
     // MARK: - Initialization

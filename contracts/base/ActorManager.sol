@@ -7,7 +7,7 @@ contract ActorManager {
     using SafeMath for uint;
 
     // MARK: - Types
-    struct Member {
+    struct Actor {
         bool isApproved;
         uint joined;
     }
@@ -18,18 +18,18 @@ contract ActorManager {
 
     // MARK: - Internal Methods
     // => dont override
-    function approve(Member storage _member) internal {
-        require(!_member.isApproved);
+    function approve(Actor storage _actor) internal {
+        require(!_actor.isApproved);
 
-        _member.isApproved = true;
-        _member.joined = now;
+        _actor.isApproved = true;
+        _actor.joined = now;
     }
 
     // => dont override
-    function deny(Member storage _member) internal {
-        require(_member.isApproved);
+    function deny(Actor storage _actor) internal {
+        require(_actor.isApproved);
 
-        _member.isApproved = false;
+        _actor.isApproved = false;
     }
 
 }

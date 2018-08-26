@@ -1,11 +1,11 @@
 pragma solidity 0.4.24;
 
 import "../node_modules/openzeppelin-solidity/contracts/math/SafeMath.sol";
-import "./DPG.sol";
+import "./DPGCore.sol";
 import "./DPGToken.sol";
 
 
-contract DPGPenalty is DPG {
+contract DPGPenalty is DPGCore {
     using SafeMath for uint;
 
     // MARK: - Types
@@ -30,7 +30,7 @@ contract DPGPenalty is DPG {
 
     // MARK: - Initialization
     // solhint-disable-next-line no-empty-blocks
-    constructor(address _actorManager) public DPG(_actorManager) {}
+    constructor(address _actorManager) public DPGCore(_actorManager) {}
 
     // MARK: - Public Methods
     // => tested

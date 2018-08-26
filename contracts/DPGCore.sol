@@ -5,7 +5,7 @@ import "./base/Ownable.sol";
 import "./interface/IDPGActorManager.sol";
 
 
-contract DPG is Ownable {
+contract DPGCore is Ownable {
     using SafeMath for uint;
 
     // MARK: - Types
@@ -48,8 +48,6 @@ contract DPG is Ownable {
 
     // MARK: - Modifier
     modifier periodDependent() {
-        Period memory period = getAccountingPeriod();
-
         if (now < currentPeriodStart.add(PERIOD_LENGTH)) {
             _;
         } else {

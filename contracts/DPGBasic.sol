@@ -1,13 +1,13 @@
 pragma solidity 0.4.24;
 
-import "./DPG.sol";
+import "./DPGCore.sol";
 
 
-contract DPGBasic is DPG {
+contract DPGBasic is DPGCore {
 
     // MARK: - Initialization
     // solhint-disable-next-line no-empty-blocks
-    constructor(address _actorManager) public DPG(_actorManager) {}
+    constructor(address _actorManager) public DPGCore(_actorManager) {}
 
     // MARK: - Public Methods
     function deposit(uint _bottleCount) public payable {

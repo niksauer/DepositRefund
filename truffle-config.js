@@ -24,5 +24,7 @@ module.exports = {
     }
   },
 
-  // solc: { optimizer: { enabled: true, runs: 200 } }
+  solc: { optimizer: { enabled: true, runs: 10000 } },
+
+  mocha: { enableTimeouts: false }
 };

@@ -14,7 +14,7 @@ contract("DPG Penalty Test", async (accounts) => {
     const retail = accounts[2];
     const consumerA = accounts[3];
     const consumerB = accounts[4]
-    const bottler = accounts[5]
+    const bottler = accounts[5];
     const collector = accounts[6];
 
     // hooks

@@ -221,4 +221,52 @@ contract("DPG Gas Cost Test", async (accounts) => {
         console.log("buyOneWayBottles() - avg - transfer", averageTransferGasCost);
     });
 
+    it("should output gas cost for DPGPenalty (reporting thrown away bottles)", async() => {
+        const actorManagerContract = await DPGActorManager.new();
+        const mainContract = await DPGPenalty.new(actorManagerContract.address);
+        actorManagerContract.addCollector(collector, {from: owner});
+
+        // adjust
+        const iterations = 200;
+        const maxBottles = 50;
+
+        // buyOneWayBottles()
+        let totalBuyGasCost = 0;
+
+        for (i = 0; i < iterations; i++) {
+            const identifiers = [];
+
+            for (j = 0; j < maxBottles; j++) {
+                identifiers[j] = i * maxBottles + j + 1;
+            }
+
+            const buyTX = await mainContract.buyOneWayBottles(identifiers, retail, {value: identifiers.length * DEPOSIT_VALUE, from: bottler});
+            const gasCost = buyTX.receipt.gasUsed;
+            totalBuyGasCost = totalBuyGasCost + gasCost;
+            // console.log("buyOneWayBottles()", gasCost);
+        }
+
+        const averageBuyGasCost = totalBuyGasCost / iterations;
+        // console.log("buyOneWayBottles() - avg -", averageBuyGasCost);
+
+        // reportThrownAwayOneWayBottles()
+        let totalReportGasCost = 0;
+
+        for (i = 0; i < iterations; i++) {
+            const identifiers = [];
+
+            for (j = 0; j < maxBottles; j++) {
+                identifiers[j] = i * maxBottles + j + 1;
+            }
+
+            const reportTX = await mainContract.reportThrownAwayOneWayBottles(identifiers, {from: collector});
+            const gasCost = reportTX.receipt.gasUsed;
+            totalReportGasCost = totalReportGasCost + gasCost;
+            // console.log("reportThrownAwayOneWayBottles()", gasCost);
+        }
+
+        const averageReportGasCost = totalReportGasCost / iterations;
+        console.log("reportThrownAwayOneWayBottles() - avg", averageReportGasCost);
+    });
+
 });
